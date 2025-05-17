@@ -1,0 +1,68 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: chatbot-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    schemas: chatbotmb
+    table: flyway_schema_history
+
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        model: qwen3:4b  # 默认模型
+        options:
+          temperature: 0.7
+          top-p: 0.95
+          top-k: 5
+
+jwt:
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  expiration: 86400000 # 24 hours
+
+# 添加MyBatis-Plus配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.chatbot.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+chatbot:
+  model:
+    options:
+      qwen3:
+        model: qwen3:4b
+        temperature: 0.7
+        top-p: 0.95
+        top-k: 5
+      deepseekR1:
+        model: deepseek-r1:7b
+        temperature: 0.7
+        top-p: 0.95
+        top-k: 50
+
+logging:
+  level:
+    org.springframework: INFO
+    org.springframework.ai.chat.client.advisor: DEBUG
+    com.example.chatbot: DEBUG
+
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:3000
