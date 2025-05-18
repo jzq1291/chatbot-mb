@@ -32,6 +32,17 @@
           </template>
         </el-table-column>
       </el-table>
+      
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[6]"
+          :total="totalElements"
+          layout="total, prev, pager, next"
+          @current-change="handlePageChange"
+        />
+      </div>
     </div>
 
     <!-- 添加知识对话框 -->
@@ -77,6 +88,10 @@ const store = useKnowledgeStore();
 const authStore = useAuthStore();
 const dialogVisible = ref(false);
 const isEditMode = ref(false);
+const currentPage = ref(1);
+const pageSize = ref(6);
+const totalElements = ref(0);
+
 const newKnowledge = ref<KnowledgeBase>({
   title: '',
   content: '',
@@ -86,9 +101,25 @@ const newKnowledge = ref<KnowledgeBase>({
 // 搜索知识
 const handleSearch = async () => {
   try {
-    await store.searchKnowledge(store.searchKeyword);
+    currentPage.value = 1;
+    await store.searchKnowledge(store.searchKeyword, currentPage.value - 1, pageSize.value);
+    totalElements.value = store.totalElements;
   } catch (error) {
     ElMessage.error('搜索失败');
+  }
+};
+
+// 处理页码变化
+const handlePageChange = async (page: number) => {
+  try {
+    if (store.searchKeyword) {
+      await store.searchKnowledge(store.searchKeyword, page - 1, pageSize.value);
+    } else {
+      await store.loadKnowledge(page - 1, pageSize.value);
+    }
+    totalElements.value = store.totalElements;
+  } catch (error) {
+    ElMessage.error('加载失败');
   }
 };
 
@@ -149,7 +180,8 @@ const handleDelete = async (row: KnowledgeBase) => {
 onMounted(async () => {
   if (authStore.token) {
     try {
-      await store.loadKnowledge()
+      await store.loadKnowledge(0, pageSize.value);
+      totalElements.value = store.totalElements;
     } catch (error: any) {
       // 如果是 403 错误，说明可能是登出导致的，不需要显示错误
       if (error.response?.status !== 403) {
@@ -184,5 +216,11 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 </style> 

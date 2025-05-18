@@ -24,6 +24,17 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[6]"
+          :total="totalElements"
+          layout="total, prev, pager, next"
+          @current-change="handlePageChange"
+        />
+      </div>
     </div>
 
     <!-- 添加/编辑用户对话框 -->
@@ -79,6 +90,9 @@ const userStore = useUserStore()
 const authStore = useAuthStore()
 const dialogVisible = ref(false)
 const isEditMode = ref(false)
+const currentPage = ref(1)
+const pageSize = ref(6)
+const totalElements = ref(0)
 
 const formRef = ref<FormInstance>()
 const newUser = ref<User>({
@@ -159,6 +173,9 @@ const handleSave = async () => {
           ElMessage.success('创建成功')
         }
         dialogVisible.value = false
+        // 重新加载当前页
+        await userStore.loadUsers(currentPage.value - 1, pageSize.value)
+        totalElements.value = userStore.totalElements
       } catch (error) {
         console.error('保存失败:', error)
       }
@@ -186,10 +203,20 @@ const handleDelete = async (id: number) => {
   }
 }
 
+const handlePageChange = async (page: number) => {
+  try {
+    await userStore.loadUsers(page - 1, pageSize.value)
+    totalElements.value = userStore.totalElements
+  } catch (error) {
+    ElMessage.error('加载失败')
+  }
+}
+
 onMounted(async () => {
   if (authStore.token) {
     try {
-      await userStore.loadUsers()
+      await userStore.loadUsers(0, pageSize.value)
+      totalElements.value = userStore.totalElements
     } catch (error: any) {
       if (error.response?.status !== 403) {
         ElMessage.error('加载用户列表失败：' + (error as Error).message)
@@ -223,5 +250,11 @@ onMounted(async () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
 }
 </style> 

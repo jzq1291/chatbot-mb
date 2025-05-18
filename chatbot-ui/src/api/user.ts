@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import type { PageResponse } from './knowledge'
 
 export interface User {
   id?: number
@@ -9,24 +10,25 @@ export interface User {
 }
 
 export const userApi = {
-  // 获取所有用户
-  getAllUsers: () => {
-    return request.get<User[]>('/ai/users')
+  getAll: (page: number, size: number) => {
+    return request.get<PageResponse<User>>('/ai/users', {
+      params: { page, size }
+    })
   },
 
-  // 创建用户
-  createUser: (user: User) => {
+  getById: (id: number) => {
+    return request.get<User>(`/ai/users/${id}`)
+  },
+
+  create: (user: User) => {
     return request.post<User>('/ai/users', user)
   },
 
-  // 更新用户
-  updateUser: (user: User) => {
-    if (!user.id) throw new Error('用户ID不能为空')
-    return request.put<User>(`/ai/users/${user.id}`, user)
+  update: (id: number, user: User) => {
+    return request.put<User>(`/ai/users/${id}`, user)
   },
 
-  // 删除用户
-  deleteUser: (id: number) => {
+  delete: (id: number) => {
     return request.delete(`/ai/users/${id}`)
   }
 } 

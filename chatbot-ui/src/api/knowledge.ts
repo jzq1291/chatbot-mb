@@ -7,32 +7,42 @@ export interface KnowledgeBase {
     category: string;
 }
 
-export const knowledgeApi = {
-    // 添加知识
-    addKnowledge: (knowledge: KnowledgeBase) => {
-        return request.post<KnowledgeBase>('/ai/knowledge', knowledge)
-    },
+export interface PageResponse<T> {
+    content: T[];
+    currentPage: number;
+    pageSize: number;
+    totalElements: number;
+    totalPages: number;
+}
 
-    // 搜索知识
-    searchKnowledge: (keyword: string) => {
-        return request.get<KnowledgeBase[]>('/ai/knowledge/search', {
-            params: { keyword }
+export const knowledgeApi = {
+    getAll: (page: number, size: number) => {
+        return request.get<PageResponse<KnowledgeBase>>('/ai/knowledge', {
+            params: { page, size }
         })
     },
 
-    // 按分类获取知识
-    getByCategory: (category: string) => {
-        return request.get<KnowledgeBase[]>(`/ai/knowledge/category/${category}`)
+    search: (keyword: string, page: number, size: number) => {
+        return request.get<PageResponse<KnowledgeBase>>('/ai/knowledge/search', {
+            params: { keyword, page, size }
+        })
     },
 
-    // 删除知识
-    deleteKnowledge: (id: number) => {
+    getByCategory: (category: string, page: number, size: number) => {
+        return request.get<PageResponse<KnowledgeBase>>(`/ai/knowledge/category/${category}`, {
+            params: { page, size }
+        })
+    },
+
+    add: (knowledge: KnowledgeBase) => {
+        return request.post<KnowledgeBase>('/ai/knowledge', knowledge)
+    },
+
+    update: (id: number, knowledge: KnowledgeBase) => {
+        return request.put<KnowledgeBase>(`/ai/knowledge/${id}`, knowledge)
+    },
+
+    delete: (id: number) => {
         return request.delete(`/ai/knowledge/${id}`)
-    },
-
-    // 更新知识
-    updateKnowledge: (knowledge: KnowledgeBase) => {
-        if (!knowledge.id) throw new Error('知识ID不能为空')
-        return request.put<KnowledgeBase>(`/ai/knowledge/${knowledge.id}`, knowledge)
     }
 }; 

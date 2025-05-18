@@ -1,5 +1,6 @@
 package com.example.chatbot.controller;
 
+import com.example.chatbot.dto.PageResponse;
 import com.example.chatbot.entity.KnowledgeBase;
 import com.example.chatbot.service.KnowledgeService;
 import lombok.RequiredArgsConstructor;
@@ -20,13 +21,19 @@ public class KnowledgeBaseController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<KnowledgeBase>> searchKnowledge(@RequestParam String keyword) {
-        return ResponseEntity.ok(knowledgeService.searchByKeyword(keyword));
+    public ResponseEntity<PageResponse<KnowledgeBase>> searchKnowledge(
+            @RequestParam String keyword,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "6") int size) {
+        return ResponseEntity.ok(knowledgeService.searchByKeyword(keyword, page, size));
     }
 
     @GetMapping("/category/{category}")
-    public ResponseEntity<List<KnowledgeBase>> getByCategory(@PathVariable String category) {
-        return ResponseEntity.ok(knowledgeService.findByCategory(category));
+    public ResponseEntity<PageResponse<KnowledgeBase>> getByCategory(
+            @PathVariable String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "6") int size) {
+        return ResponseEntity.ok(knowledgeService.findByCategory(category, page, size));
     }
 
     @DeleteMapping("/{id}")

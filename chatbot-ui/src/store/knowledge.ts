@@ -1,36 +1,31 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { knowledgeApi, type KnowledgeBase } from '@/api/knowledge'
+import type { KnowledgeBase } from '@/api/knowledge'
+import { knowledgeApi } from '@/api/knowledge'
 
 export const useKnowledgeStore = defineStore('knowledge', () => {
   const knowledgeList = ref<KnowledgeBase[]>([])
   const loading = ref(false)
   const searchKeyword = ref('')
+  const totalElements = ref(0)
 
-  const loadKnowledge = async () => {
+  const loadKnowledge = async (page = 0, size = 6) => {
     loading.value = true
     try {
-      const data = await knowledgeApi.searchKnowledge('')
-      knowledgeList.value = Array.isArray(data) ? data : []
-    } catch (error) {
-      console.error('加载知识列表失败:', error)
-      knowledgeList.value = []
-      throw error
+      const response = await knowledgeApi.getAll(page, size)
+      knowledgeList.value = response.content
+      totalElements.value = response.totalElements
     } finally {
       loading.value = false
     }
   }
 
-  const searchKnowledge = async (keyword: string) => {
+  const searchKnowledge = async (keyword: string, page = 0, size = 6) => {
     loading.value = true
     try {
-      searchKeyword.value = keyword
-      const data = await knowledgeApi.searchKnowledge(keyword)
-      knowledgeList.value = Array.isArray(data) ? data : []
-    } catch (error) {
-      console.error('搜索失败:', error)
-      knowledgeList.value = []
-      throw error
+      const response = await knowledgeApi.search(keyword, page, size)
+      knowledgeList.value = response.content
+      totalElements.value = response.totalElements
     } finally {
       loading.value = false
     }
@@ -39,8 +34,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   const addKnowledge = async (knowledge: KnowledgeBase) => {
     loading.value = true
     try {
-      await knowledgeApi.addKnowledge(knowledge)
+      const response = await knowledgeApi.add(knowledge)
       await loadKnowledge()
+      return response
     } finally {
       loading.value = false
     }
@@ -49,8 +45,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   const updateKnowledge = async (knowledge: KnowledgeBase) => {
     loading.value = true
     try {
-      await knowledgeApi.updateKnowledge(knowledge)
+      const response = await knowledgeApi.update(knowledge.id!, knowledge)
       await loadKnowledge()
+      return response
     } finally {
       loading.value = false
     }
@@ -59,7 +56,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   const deleteKnowledge = async (id: number) => {
     loading.value = true
     try {
-      await knowledgeApi.deleteKnowledge(id)
+      await knowledgeApi.delete(id)
       await loadKnowledge()
     } finally {
       loading.value = false
@@ -70,6 +67,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     knowledgeList,
     loading,
     searchKeyword,
+    totalElements,
     loadKnowledge,
     searchKnowledge,
     addKnowledge,
