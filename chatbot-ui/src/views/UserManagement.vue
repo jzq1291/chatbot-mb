@@ -174,7 +174,7 @@ const handleSave = async () => {
         }
         dialogVisible.value = false
         // 重新加载当前页
-        await userStore.loadUsers(currentPage.value - 1, pageSize.value)
+        await userStore.loadUsers(currentPage.value, pageSize.value)
         totalElements.value = userStore.totalElements
       } catch (error) {
         console.error('保存失败:', error)
@@ -205,7 +205,7 @@ const handleDelete = async (id: number) => {
 
 const handlePageChange = async (page: number) => {
   try {
-    await userStore.loadUsers(page - 1, pageSize.value)
+    await userStore.loadUsers(page, pageSize.value)
     totalElements.value = userStore.totalElements
   } catch (error) {
     ElMessage.error('加载失败')

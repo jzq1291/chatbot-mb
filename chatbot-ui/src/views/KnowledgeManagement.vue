@@ -102,7 +102,7 @@ const newKnowledge = ref<KnowledgeBase>({
 const handleSearch = async () => {
   try {
     currentPage.value = 1;
-    await store.searchKnowledge(store.searchKeyword, currentPage.value - 1, pageSize.value);
+    await store.searchKnowledge(store.searchKeyword, currentPage.value, pageSize.value);
     totalElements.value = store.totalElements;
   } catch (error) {
     ElMessage.error('搜索失败');
@@ -113,9 +113,9 @@ const handleSearch = async () => {
 const handlePageChange = async (page: number) => {
   try {
     if (store.searchKeyword) {
-      await store.searchKnowledge(store.searchKeyword, page - 1, pageSize.value);
+      await store.searchKnowledge(store.searchKeyword, page, pageSize.value);
     } else {
-      await store.loadKnowledge(page - 1, pageSize.value);
+      await store.loadKnowledge(page, pageSize.value);
     }
     totalElements.value = store.totalElements;
   } catch (error) {

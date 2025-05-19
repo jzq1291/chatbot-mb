@@ -128,7 +128,7 @@ export const useChatStore = defineStore('chat', () => {
   // 发送消息
   const sendMessage = async (content: string, model: string) => {
     if (!currentSessionId.value) {
-      createNewChat()
+      await createNewChat()
     }
 
     const userMessage: ChatMessage = {

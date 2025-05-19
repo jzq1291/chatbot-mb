@@ -10,7 +10,6 @@ import com.example.chatbot.mapper.ChatMessageMapper;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.mapper.UserMapper;
 import com.example.chatbot.service.ChatService;
-import com.example.chatbot.service.KnowledgeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -38,7 +37,6 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMessageMapper chatMessageMapper;
     private final UserMapper userMapper;
     private final ModelProperties modelProperties;
-    private final KnowledgeService knowledgeService;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
 
     private User getCurrentUser() {
@@ -101,6 +99,7 @@ public class ChatServiceImpl implements ChatService {
                 .content();
 
         // 清理AI响应
+        assert aiResponse != null;
         String cleanedResponse = cleanAiResponse(aiResponse);
 
         // 保存AI响应
@@ -245,6 +244,7 @@ public class ChatServiceImpl implements ChatService {
 
             // 将响应分块发送
             // 每次发送一个字符，模拟流式效果
+            assert response != null;
             for (char c : response.toCharArray()) {
                 try {
                     emitter.send(SseEmitter.event()

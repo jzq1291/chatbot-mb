@@ -8,7 +8,7 @@ export const useUserStore = defineStore('user', () => {
   const loading = ref(false)
   const totalElements = ref(0)
 
-  const loadUsers = async (page = 0, size = 6) => {
+  const loadUsers = async (page = 1, size = 6) => {
     loading.value = true
     try {
       const response = await userApi.getAll(page, size)

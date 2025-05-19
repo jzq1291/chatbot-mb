@@ -16,11 +16,11 @@ export interface PageResponse<T> {
 }
 
 export const knowledgeApi = {
-    getAll: (page: number, size: number) => {
-        return request.get<PageResponse<KnowledgeBase>>('/ai/knowledge', {
-            params: { page, size }
-        })
-    },
+    // getAll: (page: number, size: number) => {
+    //     return request.get<PageResponse<KnowledgeBase>>('/ai/knowledge/search', {
+    //         params: { page, size }
+    //     })
+    // },
 
     search: (keyword: string, page: number, size: number) => {
         return request.get<PageResponse<KnowledgeBase>>('/ai/knowledge/search', {

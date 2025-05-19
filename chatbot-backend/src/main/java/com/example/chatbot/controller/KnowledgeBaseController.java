@@ -23,7 +23,7 @@ public class KnowledgeBaseController {
     @GetMapping("/search")
     public ResponseEntity<PageResponse<KnowledgeBase>> searchKnowledge(
             @RequestParam String keyword,
-            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "6") int size) {
         return ResponseEntity.ok(knowledgeService.searchByKeyword(keyword, page, size));
     }
