@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import axios from 'axios'
 import { authApi } from '@/api/auth'
 import { useRouter } from 'vue-router'
-import type { LoginRequest, RegisterRequest, AuthResponse, UserRole } from '@/api/types'
+import type { RegisterRequest, UserRole } from '@/api/types'
 import { hasRole, hasAnyRole } from '@/api/types'
 import { useChatStore } from '@/store/chat'
 
