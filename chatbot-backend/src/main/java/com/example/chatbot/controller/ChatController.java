@@ -4,14 +4,9 @@ import com.example.chatbot.dto.ChatRequest;
 import com.example.chatbot.dto.ChatResponse;
 import com.example.chatbot.service.ChatService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import reactor.core.publisher.Flux;
 
-import java.util.Arrays;
 import java.util.List;
 
 @RestController
