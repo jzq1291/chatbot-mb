@@ -37,9 +37,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Override
     public PageResponse<KnowledgeBase> searchByKeyword(String keyword, int page, int size) {
         String pattern = "%" + keyword + "%";
-        log.debug("Searching knowledge base with pattern: {}", pattern);
         Page<KnowledgeBase> pageResult = knowledgeBaseMapper.searchByKeyword(new Page<>(page, size), pattern);
-        log.debug("Found {} results", pageResult.getTotal());
         return new PageResponse<>(
             pageResult.getRecords(),
             page,

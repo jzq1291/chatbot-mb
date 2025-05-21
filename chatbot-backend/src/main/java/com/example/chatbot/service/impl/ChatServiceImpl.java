@@ -10,6 +10,7 @@ import com.example.chatbot.mapper.ChatMessageMapper;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.mapper.UserMapper;
 import com.example.chatbot.service.ChatService;
+import com.example.chatbot.service.RedisService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -21,9 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -38,6 +37,7 @@ public class ChatServiceImpl implements ChatService {
     private final UserMapper userMapper;
     private final ModelProperties modelProperties;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
+    private final RedisService redisService;
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -55,9 +55,30 @@ public class ChatServiceImpl implements ChatService {
         // 清理用户消息
         String cleanedMessage = cleanMessage(request.getMessage());
         saveUserMessage(cleanedMessage, sessionId, currentUser);
-        
-        // 搜索相关知识库内容
-        List<KnowledgeBase> relevantDocs = knowledgeBaseMapper.retrieveByKeyword(cleanedMessage);
+
+        String keyWord = cleanedMessage.isEmpty() ? cleanedMessage : "%" + cleanedMessage + "%";
+        List<KnowledgeBase> relevantDocs = new ArrayList<>();
+
+        // 1. 首先从Redis获取热门知识
+        List<KnowledgeBase> hotDocs = redisService.getHotKnowledge();
+        if (!hotDocs.isEmpty()) {
+            // 在热门知识中查找匹配的内容
+            relevantDocs = hotDocs.stream()
+                .filter(doc -> doc.getTitle().toLowerCase().contains(cleanedMessage.toLowerCase()) ||
+                             doc.getContent().toLowerCase().contains(cleanedMessage.toLowerCase()))
+                .collect(Collectors.toList());
+        }
+
+        // 2. 如果热门知识中没有找到匹配的内容，则查询数据库
+        if (relevantDocs.isEmpty() && !keyWord.equals("%%")) {
+            relevantDocs = knowledgeBaseMapper.retrieveByKeyword(keyWord);
+            
+            // 更新Redis中的热门知识
+            for (KnowledgeBase doc : relevantDocs) {
+                redisService.incrementKnowledgeScore(doc);
+            }
+        }
+
         StringBuilder contextBuilder = new StringBuilder();
         if (!relevantDocs.isEmpty()) {
             contextBuilder.append("相关文档：\n");
@@ -207,70 +228,5 @@ public class ChatServiceImpl implements ChatService {
         return message.trim()
                 .replaceAll("^[\\n\\t\\r]+|[\\n\\t\\r]+$", "") // 去除前后的换行、制表符
                 .replaceAll("\\s+", " "); // 将中间的多个空白字符替换为单个空格
-    }
-
-    @Override
-    public void processMessageStream(String sessionId, String message, String modelId, SseEmitter emitter) {
-        try {
-            // 获取或创建会话ID
-            String currentSessionId = getOrCreateSessionId(sessionId);
-            String currentModelId = modelId != null ? modelId : "qwen3";
-
-            // 保存用户消息
-            saveUserMessage(message, currentSessionId, getCurrentUser());
-
-            // 构建消息上下文
-            List<Message> messages = buildMessageContext(currentSessionId);
-
-            // 获取模型配置
-            ModelProperties.ModelOption modelOptions = modelProperties.getOptions().get(currentModelId);
-            if (modelOptions == null) {
-                throw new IllegalArgumentException("Invalid model ID: " + currentModelId);
-            }
-
-            ChatOptions options = ChatOptions.builder()
-                    .model(modelOptions.getModel())
-                    .temperature(modelOptions.getTemperature())
-                    .topP(modelOptions.getTopP())
-                    .topK(modelOptions.getTopK())
-                    .build();
-
-            // 发送流式响应
-            String response = chatClient.prompt()
-                    .messages(messages)
-                    .options(options)
-                    .call()
-                    .content();
-
-            // 将响应分块发送
-            // 每次发送一个字符，模拟流式效果
-            assert response != null;
-            for (char c : response.toCharArray()) {
-                try {
-                    emitter.send(SseEmitter.event()
-                            .name("message")
-                            .data(String.valueOf(c)));
-                    Thread.sleep(10); // 添加小延迟使流式效果更明显
-                } catch (IOException | InterruptedException e) {
-                    try {
-                        emitter.send(SseEmitter.event()
-                                .name("error")
-                                .data(e.getMessage()));
-                    } catch (IOException ex) {
-                        throw new RuntimeException(ex);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("error")
-                        .data(e.getMessage()));
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        } finally {
-            emitter.complete();
-        }
     }
 } 

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.chatbot.entity.KnowledgeBase;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Param;
 import java.util.List;
 
 @Mapper
@@ -21,4 +22,12 @@ public interface KnowledgeBaseMapper extends BaseMapper<KnowledgeBase> {
             "LOWER(title) LIKE LOWER(#{pattern}) OR " +
             "LOWER(content) LIKE LOWER(#{pattern})")
     List<KnowledgeBase> retrieveByKeyword(String pattern);
+
+    @Select("<script>" +
+            "SELECT * FROM knowledge_base WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            "</script>")
+    List<KnowledgeBase> findByIds(@Param("ids") List<Long> ids);
 } 

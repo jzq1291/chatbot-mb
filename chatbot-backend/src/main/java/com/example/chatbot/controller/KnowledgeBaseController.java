@@ -24,15 +24,15 @@ public class KnowledgeBaseController {
     public ResponseEntity<PageResponse<KnowledgeBase>> searchKnowledge(
             @RequestParam String keyword,
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "6") int size) {
+            @RequestParam(defaultValue = "12") int size) {
         return ResponseEntity.ok(knowledgeService.searchByKeyword(keyword, page, size));
     }
 
     @GetMapping("/category/{category}")
     public ResponseEntity<PageResponse<KnowledgeBase>> getByCategory(
             @PathVariable String category,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "6") int size) {
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "12") int size) {
         return ResponseEntity.ok(knowledgeService.findByCategory(category, page, size));
     }
 

@@ -6,9 +6,12 @@ import com.example.chatbot.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -25,17 +28,6 @@ public class ChatController {
         ChatResponse response = chatService.processMessage(request);
         return ResponseEntity.ok(response);
     }
-
-    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamChat(@RequestBody ChatRequest request) {
-        if (request.getModelId() == null) {
-            request.setModelId("qwen3");
-        }
-        SseEmitter emitter = new SseEmitter();
-        chatService.processMessageStream(request.getSessionId(), request.getMessage(), request.getModelId(), emitter);
-        return emitter;
-    }
-
     @GetMapping("/models")
     public ResponseEntity<List<String>> getAvailableModels() {
         return ResponseEntity.ok(List.of("qwen3", "deepseekR1"));

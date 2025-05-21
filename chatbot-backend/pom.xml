@@ -78,6 +78,10 @@
             <artifactId>flyway-database-postgresql</artifactId>
             <version>11.8.2</version> <!-- 与 flyway-core 版本一致 -->
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>

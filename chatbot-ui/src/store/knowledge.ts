@@ -9,7 +9,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   const searchKeyword = ref('')
   const totalElements = ref(0)
 
-  const loadKnowledge = async (page = 1, size = 6) => {
+  const loadKnowledge = async (page = 1, size = 12) => {
     loading.value = true
     try {
       const response = await knowledgeApi.search("", page, size)
@@ -20,7 +20,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     }
   }
 
-  const searchKnowledge = async (keyword: string, page = 1, size = 6) => {
+  const searchKnowledge = async (keyword: string, page = 1, size = 12) => {
     loading.value = true
     try {
       const response = await knowledgeApi.search(keyword, page, size)

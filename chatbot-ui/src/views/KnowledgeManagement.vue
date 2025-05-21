@@ -37,7 +37,7 @@
         <el-pagination
           v-model:current-page="currentPage"
           v-model:page-size="pageSize"
-          :page-sizes="[6]"
+          :page-sizes="[10]"
           :total="totalElements"
           layout="total, prev, pager, next"
           @current-change="handlePageChange"
@@ -62,7 +62,7 @@
           <el-input
             v-model="newKnowledge.content"
             type="textarea"
-            :rows="6"
+            :rows="10"
           />
         </el-form-item>
       </el-form>
@@ -89,7 +89,7 @@ const authStore = useAuthStore();
 const dialogVisible = ref(false);
 const isEditMode = ref(false);
 const currentPage = ref(1);
-const pageSize = ref(6);
+const pageSize = ref(12);
 const totalElements = ref(0);
 
 const newKnowledge = ref<KnowledgeBase>({
