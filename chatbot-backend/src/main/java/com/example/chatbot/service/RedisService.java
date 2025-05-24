@@ -17,7 +17,8 @@ public class RedisService {
     private static final String KNOWLEDGE_DATA_KEY = "knowledge_data:";
     private static final String KEYWORD_INDEX_KEY = "keyword_index:";
     private static final double HOT_THRESHOLD = 5.0;
-    private static final int MAX_KEYWORDS_PER_DOC = 10; // 每个文档最多索引的关键词数量
+    private static final int MAX_KEYWORDS_PER_DOC = 10;
+    private static final long DEFAULT_EXPIRATION_DAYS = 7;
 
     public void saveDocToRedis(KnowledgeBase knowledge) {
         String docId = knowledge.getId().toString();
@@ -25,8 +26,9 @@ public class RedisService {
         // 1. 更新热门知识分数
         redisTemplate.opsForZSet().incrementScore(HOT_KNOWLEDGE_KEY, docId, 1);
         
-        // 2. 存储完整知识数据
-        redisTemplate.opsForValue().set(KNOWLEDGE_DATA_KEY + docId, knowledge, java.time.Duration.ofDays(7));
+        // 2. 存储完整知识数据，设置过期时间
+        redisTemplate.opsForValue().set(KNOWLEDGE_DATA_KEY + docId, knowledge, 
+            java.time.Duration.ofDays(DEFAULT_EXPIRATION_DAYS));
         
         // 3. 更新关键词索引
         updateKeywordIndex(knowledge);
@@ -41,7 +43,7 @@ public class RedisService {
         // 为每个关键词创建索引
         for (String keyword : keywords) {
             String keywordKey = KEYWORD_INDEX_KEY + keyword.toLowerCase();
-            redisTemplate.opsForZSet().add(keywordKey, docId, 1);
+            redisTemplate.opsForSet().add(keywordKey, docId);
         }
     }
 
@@ -55,6 +57,9 @@ public class RedisService {
 
     public void incrementKnowledgeScore(String knowledgeId) {
         redisTemplate.opsForZSet().incrementScore(HOT_KNOWLEDGE_KEY, knowledgeId, 1);
+        // 每次访问时重置过期时间
+        redisTemplate.expire(KNOWLEDGE_DATA_KEY + knowledgeId, 
+            java.time.Duration.ofDays(DEFAULT_EXPIRATION_DAYS));
     }
 
     public List<KnowledgeBase> searchKnowledge(String query) {
@@ -68,7 +73,7 @@ public class RedisService {
         // 1. 首先检查关键词索引
         for (String term : searchTerms) {
             String keywordKey = KEYWORD_INDEX_KEY + term;
-            Set<Object> docIds = redisTemplate.opsForZSet().range(keywordKey, 0, -1);
+            Set<Object> docIds = redisTemplate.opsForSet().members(keywordKey);
             if (docIds != null) {
                 matchedDocIds.addAll(docIds.stream()
                         .map(Object::toString)
@@ -118,19 +123,7 @@ public class RedisService {
             return;
         }
 
-        // 保留访问次数超过阈值的数据
-        allItems.stream()
-                .filter(tuple -> {
-                    Double score = tuple.getScore();
-                    return score != null && score >= HOT_THRESHOLD;
-                })
-                .forEach(tuple -> {
-                    String id = Objects.requireNonNull(tuple.getValue()).toString();
-                    // 更新热门知识的过期时间
-                    redisTemplate.expire(KNOWLEDGE_DATA_KEY + id, java.time.Duration.ofDays(7));
-                });
-
-        // 删除访问次数低于阈值的数据
+        // 只删除访问次数低于阈值的数据
         allItems.stream()
                 .filter(tuple -> {
                     Double score = tuple.getScore();
@@ -151,7 +144,7 @@ public class RedisService {
         // 获取所有关键词索引键
         Set<String> keywordKeys = redisTemplate.keys(KEYWORD_INDEX_KEY + "*");
         for (String key : keywordKeys) {
-            redisTemplate.opsForZSet().remove(key, docId);
+            redisTemplate.opsForSet().remove(key, docId);
         }
     }
 } 
