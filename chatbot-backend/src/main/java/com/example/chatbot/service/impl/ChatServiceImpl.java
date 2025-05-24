@@ -72,10 +72,13 @@ public class ChatServiceImpl implements ChatService {
         // 2. 如果热门知识中没有找到匹配的内容，则查询数据库
         if (relevantDocs.isEmpty() && !keyWord.equals("%%")) {
             relevantDocs = knowledgeBaseMapper.retrieveByKeyword(keyWord);
-            
             // 更新Redis中的热门知识
             for (KnowledgeBase doc : relevantDocs) {
-                redisService.incrementKnowledgeScore(doc);
+                redisService.saveDocToRedis(doc);
+            }
+        } else {
+            for (KnowledgeBase doc : relevantDocs) {
+                redisService.incrementKnowledgeScore(String.valueOf(doc.getId()));
             }
         }
 

@@ -16,7 +16,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 自定义报表
    - 数据导出
    - 报表订阅
-   - 报表分享', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 报表分享', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('在线协作功能', '1. 文档协作
    - 实时编辑
@@ -34,7 +34,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 在线会议
    - 屏幕共享
    - 会议录制
-   - 会议纪要', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 会议纪要', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('智能助手功能', '1. 智能问答
    - 自动回复
@@ -52,7 +52,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 情感分析
    - 文本分类
    - 实体识别
-   - 摘要生成', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 摘要生成', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('安全防护功能', '1. 访问控制
    - 身份认证
@@ -70,7 +70,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 防SQL注入
    - 防XSS攻击
    - 防CSRF攻击
-   - 防DDoS攻击', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 防DDoS攻击', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('性能优化功能', '1. 前端优化
    - 资源压缩
@@ -88,7 +88,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - CDN加速
    - 带宽优化
    - 连接优化
-   - 协议优化', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 协议优化', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('监控告警功能', '1. 系统监控
    - 性能监控
@@ -106,7 +106,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 告警规则
    - 告警通知
    - 告警升级
-   - 告警分析', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 告警分析', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('自动化功能', '1. 流程自动化
    - 工作流自动化
@@ -124,7 +124,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 环境部署
    - 版本发布
    - 配置管理
-   - 回滚管理', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 回滚管理', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('多租户功能', '1. 租户管理
    - 租户创建
@@ -142,7 +142,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 数据分区
    - 数据加密
    - 数据备份
-   - 数据恢复', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 数据恢复', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('国际化功能', '1. 多语言支持
    - 语言切换
@@ -160,7 +160,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 区域设置
    - 文化适配
    - 法律合规
-   - 支付适配', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 支付适配', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('社交功能', '1. 用户互动
    - 关注功能
@@ -178,7 +178,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 互动分析
    - 用户画像
    - 内容分析
-   - 趋势分析', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 趋势分析', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('直播功能', '1. 直播管理
    - 直播创建
@@ -196,7 +196,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 观看数据
    - 互动数据
    - 礼物统计
-   - 用户分析', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 用户分析', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('游戏功能', '1. 游戏管理
    - 游戏配置
@@ -214,7 +214,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 活动管理
    - 道具管理
    - 用户管理
-   - 数据分析', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 数据分析', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('教育功能', '1. 课程管理
    - 课程创建
@@ -232,7 +232,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 在线答疑
    - 讨论区
    - 直播课堂
-   - 录播课程', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 录播课程', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('医疗功能', '1. 患者管理
    - 患者信息
@@ -250,7 +250,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 疾病分析
    - 用药分析
    - 疗效分析
-   - 费用分析', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 费用分析', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('金融功能', '1. 账户管理
    - 账户开户
@@ -268,7 +268,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 风险评估
    - 欺诈检测
    - 合规检查
-   - 预警管理', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 预警管理', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('物流功能', '1. 订单管理
    - 订单处理
@@ -286,7 +286,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 入库管理
    - 出库管理
    - 库存管理
-   - 盘点管理', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 盘点管理', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('人力资源功能', '1. 员工管理
    - 员工信息
@@ -304,7 +304,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 职位管理
    - 简历管理
    - 面试管理
-   - 入职管理', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 入职管理', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('资产管理功能', '1. 资产登记
    - 资产信息
@@ -322,7 +322,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 使用分析
    - 成本分析
    - 折旧分析
-   - 价值分析', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 价值分析', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('供应链功能', '1. 供应商管理
    - 供应商信息
@@ -340,7 +340,7 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 库存查询
    - 库存预警
    - 库存调拨
-   - 库存分析', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+   - 库存分析', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
 
 ('生产管理功能', '1. 生产计划
    - 计划制定
@@ -358,4 +358,4 @@ INSERT INTO chatbotMb.knowledge_base (title, content, category, created_at, upda
    - 效率分析
    - 质量分析
    - 成本分析
-   - 设备分析', 'Web功能', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP); 
+   - 设备分析', '功能文档', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP); 

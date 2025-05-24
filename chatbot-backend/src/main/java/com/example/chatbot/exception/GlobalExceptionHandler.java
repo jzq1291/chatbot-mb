@@ -1,5 +1,6 @@
 package com.example.chatbot.exception;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.stream.Collectors;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -60,7 +62,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleException(Exception ex) {
         // 记录未预期的异常
-        ex.printStackTrace();
+        log.debug(ex.getMessage());
         return ResponseEntity
             .status(ErrorCode.INTERNAL_SERVER_ERROR.getHttpStatus())
             .body(ApiResponse.error(ErrorCode.INTERNAL_SERVER_ERROR));

@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -18,11 +19,15 @@ public class RedisService {
     private static final String KNOWLEDGE_DATA_KEY = "knowledge_data:";
     private static final int MAX_HOT_ITEMS = 20;
 
-    public void incrementKnowledgeScore(KnowledgeBase knowledge) {
+    public void saveDocToRedis(KnowledgeBase knowledge) {
         // 更新热门知识分数
         redisTemplate.opsForZSet().incrementScore(HOT_KNOWLEDGE_KEY, knowledge.getId().toString(), 1);
         // 存储完整知识数据
         redisTemplate.opsForValue().set(KNOWLEDGE_DATA_KEY + knowledge.getId(), knowledge);
+    }
+
+    public void incrementKnowledgeScore(String knowledgeId){
+        redisTemplate.opsForZSet().incrementScore(HOT_KNOWLEDGE_KEY, knowledgeId, 1);
     }
 
     public List<KnowledgeBase> getHotKnowledge() {
@@ -35,10 +40,10 @@ public class RedisService {
 
         return hotItems.stream()
                 .map(tuple -> {
-                    String id = tuple.getValue().toString();
+                    String id = Objects.requireNonNull(tuple.getValue()).toString();
                     return (KnowledgeBase) redisTemplate.opsForValue().get(KNOWLEDGE_DATA_KEY + id);
                 })
-                .filter(knowledge -> knowledge != null)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
@@ -47,7 +52,7 @@ public class RedisService {
         redisTemplate.delete(HOT_KNOWLEDGE_KEY);
         // 删除所有知识数据
         Set<String> keys = redisTemplate.keys(KNOWLEDGE_DATA_KEY + "*");
-        if (keys != null && !keys.isEmpty()) {
+        if (!keys.isEmpty()) {
             redisTemplate.delete(keys);
         }
     }

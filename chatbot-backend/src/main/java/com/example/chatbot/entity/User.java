@@ -20,7 +20,7 @@ public class User {
     @TableField("email")
     private String email;
 
-    @TableField(exist = false)
+    @TableField(exist = false)  // This field is not stored in the database
     private Set<UserRole> roles;
 
     @TableField(value = "created_at", fill = FieldFill.INSERT)
