@@ -150,10 +150,8 @@ public class RedisService {
     private void deleteKeywordIndex(String docId) {
         // 获取所有关键词索引键
         Set<String> keywordKeys = redisTemplate.keys(KEYWORD_INDEX_KEY + "*");
-        if (keywordKeys != null) {
-            for (String key : keywordKeys) {
-                redisTemplate.opsForZSet().remove(key, docId);
-            }
+        for (String key : keywordKeys) {
+            redisTemplate.opsForZSet().remove(key, docId);
         }
     }
 } 
