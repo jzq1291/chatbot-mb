@@ -59,17 +59,10 @@ public class ChatServiceImpl implements ChatService {
         String keyWord = cleanedMessage.isEmpty() ? cleanedMessage : "%" + cleanedMessage + "%";
         List<KnowledgeBase> relevantDocs = new ArrayList<>();
 
-        // 1. 首先从Redis获取热门知识
-        List<KnowledgeBase> hotDocs = redisService.getHotKnowledge();
-        if (!hotDocs.isEmpty()) {
-            // 在热门知识中查找匹配的内容
-            relevantDocs = hotDocs.stream()
-                .filter(doc -> doc.getTitle().toLowerCase().contains(cleanedMessage.toLowerCase()) ||
-                             doc.getContent().toLowerCase().contains(cleanedMessage.toLowerCase()))
-                .collect(Collectors.toList());
-        }
+        // 1. 首先从Redis搜索相关文档
+        relevantDocs = redisService.searchKnowledge(cleanedMessage);
 
-        // 2. 如果热门知识中没有找到匹配的内容，则查询数据库
+        // 2. 如果Redis中没有找到匹配的文档，则查询数据库
         if (relevantDocs.isEmpty() && !keyWord.equals("%%")) {
             relevantDocs = knowledgeBaseMapper.retrieveByKeyword(keyWord);
             // 更新Redis中的热门知识
