@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
+import com.hankcs.hanlp.HanLP;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -48,11 +49,9 @@ public class RedisService {
     }
 
     private Set<String> extractKeywords(String text) {
-        // 简单的关键词提取：分词并过滤停用词
-        return Arrays.stream(text.toLowerCase().split("\\s+"))
-                .filter(word -> word.length() > 2) // 过滤短词
-                .limit(MAX_KEYWORDS_PER_DOC)
-                .collect(Collectors.toSet());
+        // 使用 HanLP 提取关键词
+        List<String> keywords = HanLP.extractKeyword(text, MAX_KEYWORDS_PER_DOC);
+        return new HashSet<>(keywords);
     }
 
     public void incrementKnowledgeScore(String knowledgeId) {

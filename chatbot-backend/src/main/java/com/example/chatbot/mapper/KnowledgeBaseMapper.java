@@ -18,10 +18,16 @@ public interface KnowledgeBaseMapper extends BaseMapper<KnowledgeBase> {
             "LOWER(content) LIKE LOWER(#{pattern})")
     Page<KnowledgeBase> searchByKeyword(Page<KnowledgeBase> page, String pattern);
 
-    @Select("SELECT * FROM knowledge_base WHERE " +
-            "LOWER(title) LIKE LOWER(#{pattern}) OR " +
-            "LOWER(content) LIKE LOWER(#{pattern})")
-    List<KnowledgeBase> retrieveByKeyword(String pattern);
+    @Select("<script>" +
+            "SELECT * FROM knowledge_base " +
+            "<where>" +
+            "   <foreach item='keyword' collection='keywords' separator=' OR '>" +
+            "       (LOWER(title) LIKE LOWER(CONCAT('%', #{keyword}, '%')) " +
+            "        OR LOWER(content) LIKE LOWER(CONCAT('%', #{keyword}, '%')))" +
+            "   </foreach>" +
+            "</where>" +
+            "</script>")
+    List<KnowledgeBase> retrieveByKeywords(@Param("keywords") List<String> keywords);
 
     @Select("<script>" +
             "SELECT * FROM knowledge_base WHERE id IN " +

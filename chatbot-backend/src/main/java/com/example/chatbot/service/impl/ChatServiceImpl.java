@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import com.hankcs.hanlp.HanLP;
+
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
@@ -55,13 +57,17 @@ public class ChatServiceImpl implements ChatService {
         // 清理用户消息
         String cleanedMessage = cleanMessage(request.getMessage());
         saveUserMessage(cleanedMessage, sessionId, currentUser);
+
+        // 提取关键词
+        List<String> keywords = HanLP.extractKeyword(cleanedMessage, 5); // 提取前5个关键词
+        String searchQuery = String.join(" ", keywords);
+
         // 1. 首先从Redis搜索相关文档
-        List<KnowledgeBase> relevantDocs = redisService.searchKnowledge(cleanedMessage);
+        List<KnowledgeBase> relevantDocs = redisService.searchKnowledge(searchQuery);
 
         // 2. 如果Redis中没有找到匹配的文档，则查询数据库
         if (relevantDocs.isEmpty()) {
-            String keyWord = cleanedMessage.isEmpty() ? cleanedMessage : "%" + cleanedMessage + "%";
-            relevantDocs = knowledgeBaseMapper.retrieveByKeyword(keyWord);
+            relevantDocs = knowledgeBaseMapper.retrieveByKeywords(keywords);
             // 更新Redis中的热门知识
             for (KnowledgeBase doc : relevantDocs) {
                 redisService.saveDocToRedis(doc);
