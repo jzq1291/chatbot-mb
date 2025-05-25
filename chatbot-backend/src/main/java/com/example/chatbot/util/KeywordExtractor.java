@@ -2,7 +2,7 @@ package com.example.chatbot.util;
 
 import com.example.chatbot.config.KeywordExtractorProperties;
 import com.hankcs.hanlp.HanLP;
-import com.hankcs.hanlp.dictionary.CoreDictionary;
+import com.hankcs.hanlp.dictionary.CustomDictionary;
 import com.hankcs.hanlp.seg.Dijkstra.DijkstraSegment;
 import com.hankcs.hanlp.seg.Segment;
 import com.hankcs.hanlp.seg.common.Term;
@@ -24,8 +24,9 @@ public class KeywordExtractor {
     }
 
     private void initializeDictionary() {
-        // 添加常见词组到词典
-        properties.getCommonPhrases().forEach(CoreDictionary::add);
+        // 添加常见词组到自定义词典
+        properties.getCommonPhrases().forEach(phrase -> 
+            CustomDictionary.add(phrase, "nz 1024")); // nz表示专有名词，1024是词频
     }
 
     /**
