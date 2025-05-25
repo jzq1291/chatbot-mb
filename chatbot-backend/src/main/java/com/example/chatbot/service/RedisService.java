@@ -1,11 +1,11 @@
 package com.example.chatbot.service;
 
 import com.example.chatbot.entity.KnowledgeBase;
+import com.example.chatbot.util.KeywordExtractor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
-import com.hankcs.hanlp.HanLP;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RedisService {
     private final RedisTemplate<String, Object> redisTemplate;
+    private final KeywordExtractor keywordExtractor;
     private static final String HOT_KNOWLEDGE_KEY = "hot_knowledge";
     private static final String KNOWLEDGE_DATA_KEY = "knowledge_data:";
     private static final String KEYWORD_INDEX_KEY = "keyword_index:";
@@ -49,9 +50,7 @@ public class RedisService {
     }
 
     private Set<String> extractKeywords(String text) {
-        // 使用 HanLP 提取关键词
-        List<String> keywords = HanLP.extractKeyword(text, MAX_KEYWORDS_PER_DOC);
-        return new HashSet<>(keywords);
+        return new HashSet<>(keywordExtractor.extractKeywords(text, MAX_KEYWORDS_PER_DOC));
     }
 
     public void incrementKnowledgeScore(String knowledgeId) {

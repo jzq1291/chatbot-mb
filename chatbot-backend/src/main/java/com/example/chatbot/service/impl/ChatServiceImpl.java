@@ -11,6 +11,7 @@ import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.mapper.UserMapper;
 import com.example.chatbot.service.ChatService;
 import com.example.chatbot.service.RedisService;
+import com.example.chatbot.util.KeywordExtractor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -30,6 +31,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.hankcs.hanlp.HanLP;
+import com.hankcs.hanlp.seg.common.Term;
+import com.hankcs.hanlp.corpus.tag.Nature;
 
 @Service
 @RequiredArgsConstructor
@@ -40,6 +43,7 @@ public class ChatServiceImpl implements ChatService {
     private final ModelProperties modelProperties;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final RedisService redisService;
+    private final KeywordExtractor keywordExtractor;
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -59,7 +63,7 @@ public class ChatServiceImpl implements ChatService {
         saveUserMessage(cleanedMessage, sessionId, currentUser);
 
         // 提取关键词
-        List<String> keywords = HanLP.extractKeyword(cleanedMessage, 5); // 提取前5个关键词
+        List<String> keywords = keywordExtractor.extractKeywords(cleanedMessage);
         String searchQuery = String.join(" ", keywords);
 
         // 1. 首先从Redis搜索相关文档
