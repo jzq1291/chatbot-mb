@@ -2,15 +2,15 @@ package com.example.chatbot.util;
 
 import com.example.chatbot.config.KeywordExtractorProperties;
 import com.hankcs.hanlp.HanLP;
+import com.hankcs.hanlp.corpus.tag.Nature;
 import com.hankcs.hanlp.dictionary.CustomDictionary;
 import com.hankcs.hanlp.seg.Dijkstra.DijkstraSegment;
 import com.hankcs.hanlp.seg.Segment;
 import com.hankcs.hanlp.seg.common.Term;
-import com.hankcs.hanlp.corpus.tag.Nature;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 public class KeywordExtractor {
@@ -113,7 +113,7 @@ public class KeywordExtractor {
     }
 
     private void addCurrentPhrase(List<String> phrases, StringBuilder currentPhrase) {
-        if (currentPhrase.length() > 0) {
+        if (!currentPhrase.isEmpty()) {
             phrases.add(currentPhrase.toString());
             currentPhrase.setLength(0);
         }
@@ -129,7 +129,7 @@ public class KeywordExtractor {
             keywords.addAll(tfidfKeywords.stream()
                 .filter(k -> !keywords.contains(k) && k.length() >= properties.getMinWordLength())
                 .limit(maxKeywords - keywords.size())
-                .collect(Collectors.toList()));
+                .toList());
         }
 
         return keywords;
