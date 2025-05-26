@@ -50,7 +50,7 @@ public class RedisService {
     }
 
     private Set<String> extractKeywords(String text) {
-        return new HashSet<>(keywordExtractor.extractKeywords(text, MAX_KEYWORDS_PER_DOC));
+        return new HashSet<>(keywordExtractor.extractKeywordsFromArticle(text, MAX_KEYWORDS_PER_DOC));
     }
 
     public void incrementKnowledgeScore(String knowledgeId) {
