@@ -30,10 +30,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import com.hankcs.hanlp.HanLP;
-import com.hankcs.hanlp.seg.common.Term;
-import com.hankcs.hanlp.corpus.tag.Nature;
-
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
