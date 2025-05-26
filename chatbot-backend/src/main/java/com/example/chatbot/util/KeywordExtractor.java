@@ -43,10 +43,10 @@ public class KeywordExtractor {
         // 1. 分词
         List<Term> terms = segment.seg(text);
         
-        // 2. 处理分词结果
+        // 2. 处理分词结果，组合有意义的词组
         List<String> phrases = processTerms(terms);
 
-        // 3. 提取关键词
+        // 3. 提取关键词并过滤短词
         return extractKeywordsFromPhrases(phrases, maxKeywords);
     }
 
@@ -90,10 +90,12 @@ public class KeywordExtractor {
         Term term = terms.get(currentIndex);
         String word = term.word;
 
+        // 如果当前词长度足够，直接添加
         if (word.length() >= properties.getMinWordLength()) {
             addCurrentPhrase(phrases, currentPhrase);
             phrases.add(word);
         } else {
+            // 尝试与下一个词组合
             tryCombineWithNextTerm(terms, currentIndex, currentPhrase);
         }
     }
@@ -101,8 +103,8 @@ public class KeywordExtractor {
     private void tryCombineWithNextTerm(List<Term> terms, int currentIndex, StringBuilder currentPhrase) {
         if (currentIndex < terms.size() - 1) {
             Term nextTerm = terms.get(currentIndex + 1);
-            String combined = terms.get(currentIndex).word + nextTerm.word;
-            if (combined.length() >= properties.getMinWordLength()) {
+            if (isValidNature(nextTerm.nature)) {
+                String combined = terms.get(currentIndex).word + nextTerm.word;
                 currentPhrase.append(combined);
             } else {
                 currentPhrase.append(terms.get(currentIndex).word);
@@ -120,19 +122,25 @@ public class KeywordExtractor {
     }
 
     private List<String> extractKeywordsFromPhrases(List<String> phrases, int maxKeywords) {
+        String text = String.join(" ", phrases);
+        
         // 使用TextRank算法提取关键词
-        List<String> keywords = HanLP.extractKeyword(String.join(" ", phrases), maxKeywords);
+        List<String> textRankKeywords = HanLP.extractKeyword(text, maxKeywords);
         
         // 如果提取的关键词太少，补充TF-IDF结果
-        if (keywords.size() < properties.getMinKeywordCount()) {
-            List<String> tfidfKeywords = HanLP.extractKeyword(String.join(" ", phrases), maxKeywords);
-            keywords.addAll(tfidfKeywords.stream()
-                .filter(k -> !keywords.contains(k) && k.length() >= properties.getMinWordLength())
-                .limit(maxKeywords - keywords.size())
+        if (textRankKeywords.size() < properties.getMinKeywordCount()) {
+            // 使用TF-IDF算法提取关键词
+            List<String> tfidfKeywords = HanLP.extractKeyword(text, maxKeywords, true);
+            textRankKeywords.addAll(tfidfKeywords.stream()
+                .filter(k -> !textRankKeywords.contains(k))
+                .limit(maxKeywords - textRankKeywords.size())
                 .collect(Collectors.toList()));
         }
 
-        return keywords;
+        // 过滤掉长度小于minWordLength的关键词
+        return textRankKeywords.stream()
+            .filter(k -> k.length() >= properties.getMinWordLength())
+            .collect(Collectors.toList());
     }
 
     /**
