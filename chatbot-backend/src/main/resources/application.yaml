@@ -5,12 +5,12 @@ spring:
   application:
     name: chatbot-backend
   datasource:
-    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb
+    url: jdbc:postgresql://localhost:5433/chatbotmb?currentSchema=chatbotmb
     username: postgres
     password: 123456
     driver-class-name: org.postgresql.Driver
   flyway:
-    enabled: true
+    enabled: false
     baseline-on-migrate: true
     locations: classpath:db/migration
     schemas: chatbotmb
@@ -90,4 +90,4 @@ keyword:
     min-keyword-count: 3
     default-keyword-count: 5
     stop-words: [的, 了, 和, 是, 在, 我, 有, 这, 个, 们, 中, 为, 以, 及, 与, 或]
-    common-phrases: [密码管理, 系统更新, 自动更新, 用户管理, 权限管理, 数据备份, 系统维护, 故障排除, 安全设置, 网络配置, 系统设置, 账户管理, 文件管理, 系统优化, 性能优化, 系统集成, 直播功能, 自动化]
+    common-phrases: [安装指南, OfficePro 2023, 数据分析, 移动办公, Python, Photoshop, indows 11, MySQL, 高可用, 机器学习, 证件照, AutoCAD 2023, 微信小程序, 项目管理, Premiere, 市场营销, 容器化, Docker]

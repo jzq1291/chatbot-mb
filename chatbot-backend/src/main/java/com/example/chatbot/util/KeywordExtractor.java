@@ -156,11 +156,8 @@ public class KeywordExtractor {
             return true;
         }
         // 名词 + 形容词
-        if ((currentNature == Nature.n || currentNature == Nature.ng) && 
-            nextNature == Nature.a) {
-            return true;
-        }
-        return false;
+        return (currentNature == Nature.n || currentNature == Nature.ng) &&
+                nextNature == Nature.a;
     }
 
     private boolean isValidNature(Nature nature) {

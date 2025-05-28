@@ -53,6 +53,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/ai/auth/**").permitAll()
+//                .requestMatchers("/ai/users/**").permitAll()
                 .requestMatchers("/ai/chat/**").hasAnyRole("ADMIN", "USER", "KNOWLEDGEMANAGER")
                 .requestMatchers("/ai/knowledge/**").hasAnyRole("ADMIN", "KNOWLEDGEMANAGER")
                 .requestMatchers("/ai/users/**").hasRole("ADMIN")
