@@ -4,8 +4,8 @@ import com.example.chatbot.config.KeywordExtractorProperties;
 import com.hankcs.hanlp.HanLP;
 import com.hankcs.hanlp.corpus.tag.Nature;
 import com.hankcs.hanlp.dictionary.CustomDictionary;
+import com.hankcs.hanlp.seg.Dijkstra.DijkstraSegment;
 import com.hankcs.hanlp.seg.Segment;
-import com.hankcs.hanlp.seg.Viterbi.ViterbiSegment;
 import com.hankcs.hanlp.seg.common.Term;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -25,27 +25,12 @@ public class KeywordExtractor {
     private final Map<String, CacheEntry> keywordCache;
     private static final int MAX_CACHE_SIZE = 1000;
     private static final long CACHE_EXPIRY_MS = 3600000; // 1 hour
-
-    private static class CacheEntry {
-        private final List<String> keywords;
-        private final long timestamp;
-
-        public CacheEntry(List<String> keywords) {
-            this.keywords = keywords;
-            this.timestamp = System.currentTimeMillis();
-        }
-
-        public boolean isExpired() {
-            return System.currentTimeMillis() - timestamp > CACHE_EXPIRY_MS;
-        }
-    }
-
     private static boolean dictionaryInitialized = false;
     private static final Object lock = new Object();
 
     public KeywordExtractor(KeywordExtractorProperties properties) {
         this.properties = properties;
-        this.segment = new ViterbiSegment();
+        this.segment = new DijkstraSegment();
         this.keywordCache = new ConcurrentHashMap<>(MAX_CACHE_SIZE);
         initializeDictionary();
     }
@@ -111,15 +96,12 @@ public class KeywordExtractor {
             String word = term.word;
 
             if (isStopWord(word)) {
-                // 不添加当前词组，继续寻找下一个有效词
+                addCurrentPhrase(phrases, currentPhrase);
                 continue;
             }
 
             if (isValidNature(term.nature)) {
                 processValidTerm(terms, i, phrases, currentPhrase);
-            } else {
-                // 如果当前词无效且不是停止词，添加当前词组并重置
-                addCurrentPhrase(phrases, currentPhrase);
             }
         }
 
@@ -243,4 +225,35 @@ public class KeywordExtractor {
                 .collect(Collectors.toList());
     }
 
+    // 缓存条目类，用于存储关键词和过期时间
+    private static class CacheEntry {
+        private final List<String> keywords;
+        private final long timestamp;
+
+        public CacheEntry(List<String> keywords) {
+            this.keywords = keywords;
+            this.timestamp = System.currentTimeMillis();
+        }
+
+        public boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > CACHE_EXPIRY_MS;
+        }
+    }
+
+    /**
+     * 清理过期的缓存条目并确保缓存不超过最大大小
+     */
+    public void cleanupKeywordCache() {
+        // 移除过期数据
+        keywordCache.entrySet().removeIf(entry -> entry.getValue().isExpired());
+
+        // 确保缓存不超过最大大小
+        while (keywordCache.size() > MAX_CACHE_SIZE) {
+            java.util.Iterator<java.util.Map.Entry<String, CacheEntry>> iterator = keywordCache.entrySet().iterator();
+            if (iterator.hasNext()) {
+                iterator.next();
+                iterator.remove();
+            }
+        }
+    }
 }
