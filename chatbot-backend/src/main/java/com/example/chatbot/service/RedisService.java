@@ -19,7 +19,7 @@ public class RedisService {
     private static final String KNOWLEDGE_DATA_KEY = "knowledge_data:";
     private static final String KEYWORD_INDEX_KEY = "keyword_index:";
     private static final double HOT_THRESHOLD = 5.0;
-    private static final int MAX_KEYWORDS_PER_DOC = 10;
+    private static final int MAX_KEYWORDS_PER_DOC = 5;   //每篇文章提取5个关键词
     private static final long DEFAULT_EXPIRATION_DAYS = 7;
 
     public void saveDocToRedis(KnowledgeBase knowledge) {

@@ -59,7 +59,7 @@ public class ChatServiceImpl implements ChatService {
         saveUserMessage(cleanedMessage, sessionId, currentUser);
 
         // 提取关键词
-        List<String> keywords = keywordExtractor.extractKeywords(cleanedMessage);
+        List<String> keywords = keywordExtractor.extractKeywords(cleanedMessage,3);
         String searchQuery = String.join(" ", keywords);
 
         // 1. 首先从Redis搜索相关文档

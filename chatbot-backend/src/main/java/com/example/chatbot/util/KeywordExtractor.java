@@ -89,23 +89,43 @@ public class KeywordExtractor {
 
     private List<String> processTerms(List<Term> terms) {
         List<String> phrases = new ArrayList<>();
-        StringBuilder currentPhrase = new StringBuilder();
-
+        
         for (int i = 0; i < terms.size(); i++) {
             Term term = terms.get(i);
             String word = term.word;
-
-            if (isStopWord(word)) {
-                addCurrentPhrase(phrases, currentPhrase);
+            Nature nature = term.nature;
+    
+            // 跳过停止词和标点符号
+            if (isStopWord(word) || nature == Nature.w) {
                 continue;
             }
-
-            if (isValidNature(term.nature)) {
-                processValidTerm(terms, i, phrases, currentPhrase);
+    
+            // 处理专有名词和自定义词典中的词
+            if (nature == Nature.nz || nature == Nature.gi || CustomDictionary.contains(word)) {
+                phrases.add(word);
+                continue;
+            }
+    
+            // 尝试与下一个词组合
+            if (i < terms.size() - 1) {
+                Term nextTerm = terms.get(i + 1);
+                if (!isStopWord(nextTerm.word) && nextTerm.nature != Nature.w) {
+                    // 检查当前词和下一个词是否可以组合
+                    if (canCombine(nature, nextTerm.nature)) {
+                        String combined = word + nextTerm.word;
+                        phrases.add(combined);
+                        i++; // 跳过下一个词
+                        continue;
+                    }
+                }
+            }
+            
+            // 如果不需要组合或无法组合，则单独添加当前词
+            if (isValidNature(nature)) {
+                phrases.add(word);
             }
         }
-
-        addCurrentPhrase(phrases, currentPhrase);
+        
         return phrases;
     }
 
@@ -114,73 +134,80 @@ public class KeywordExtractor {
                 CustomDictionary.get(word).toString().contains("x");
     }
 
+    private boolean canCombine(Nature currentNature, Nature nextNature) {
+        // 名词 + 名词
+        if ((currentNature == Nature.n || currentNature == Nature.ng) && 
+            (nextNature == Nature.n || nextNature == Nature.ng)) {
+            return true;
+        }
+        // 名词 + 动词
+        if ((currentNature == Nature.n || currentNature == Nature.ng) && 
+            nextNature == Nature.v) {
+            return true;
+        }
+        // 动词 + 名词
+        if (currentNature == Nature.v && 
+            (nextNature == Nature.n || nextNature == Nature.ng)) {
+            return true;
+        }
+        // 形容词 + 名词
+        if (currentNature == Nature.a && 
+            (nextNature == Nature.n || nextNature == Nature.ng)) {
+            return true;
+        }
+        // 名词 + 形容词
+        if ((currentNature == Nature.n || currentNature == Nature.ng) && 
+            nextNature == Nature.a) {
+            return true;
+        }
+        return false;
+    }
+
     private boolean isValidNature(Nature nature) {
         return nature == Nature.n || // 名词
-                nature == Nature.v || // 动词
-                nature == Nature.a || // 形容词
-                nature == Nature.i || // 成语
-                nature == Nature.j || // 简称
-                nature == Nature.l || // 习用语
-                nature == Nature.nz;  // 其他专名
-    }
-
-    private void processValidTerm(List<Term> terms, int currentIndex, List<String> phrases, StringBuilder currentPhrase) {
-        Term term = terms.get(currentIndex);
-        String word = term.word;
-
-        // 优先检查是否在自定义词典中
-        if (CustomDictionary.contains(word)) {
-            addCurrentPhrase(phrases, currentPhrase);
-            phrases.add(word);
-            return;
-        }
-
-        // 如果当前词长度足够，直接添加
-        if (word.length() >= properties.getMinWordLength()) {
-            addCurrentPhrase(phrases, currentPhrase);
-            phrases.add(word);
-        } else {
-            // 尝试与下一个词组合
-            tryCombineWithNextTerm(terms, currentIndex, currentPhrase);
-        }
-    }
-
-    private void tryCombineWithNextTerm(List<Term> terms, int currentIndex, StringBuilder currentPhrase) {
-        Term currentTerm = terms.get(currentIndex);
-        if (currentIndex < terms.size() - 1) {
-            Term nextTerm = terms.get(currentIndex + 1);
-            if (isValidNature(nextTerm.nature)) {
-                // 组合当前词和下一个词
-                String combined = currentTerm.word + nextTerm.word;
-                currentPhrase.append(combined);
-            } else {
-                // 下一个词无效，只添加当前词
-                currentPhrase.append(currentTerm.word);
-            }
-        } else {
-            // 已经是最后一个词，直接添加
-            currentPhrase.append(currentTerm.word);
-        }
-    }
-
-    private void addCurrentPhrase(List<String> phrases, StringBuilder currentPhrase) {
-        if (!currentPhrase.isEmpty()) {
-            phrases.add(currentPhrase.toString());
-            currentPhrase.setLength(0);
-        }
+               nature == Nature.nz || // 专有名词
+               nature == Nature.ng || // 名语素
+               nature == Nature.nr || // 人名
+               nature == Nature.v ||  // 动词
+               nature == Nature.a ||  // 形容词
+               nature == Nature.gi;   // 技术名词
     }
 
     private List<String> extractKeywordsFromPhrases(List<String> phrases, int maxKeywords) {
         try {
+            // 将处理后的词组重新组合成文本，用空格分隔
             String text = String.join(" ", phrases);
-            int minWordLength = properties.getMinWordLength();
-
-            // 使用TextRank算法提取关键词
-
-            return HanLP.extractKeyword(text, maxKeywords).stream()
-                    .filter(k -> k.length() >= minWordLength)
-                    .limit(maxKeywords)
-                    .collect(Collectors.toList());
+            
+            // 使用HanLP的TextRank算法对原始词组进行排序
+            List<String> rankedPhrases = HanLP.extractKeyword(text, maxKeywords * 3);
+            
+            // 从原始词组中筛选出在rankedPhrases中出现的关键词
+            return phrases.stream()
+                .filter(phrase -> phrase.length() >= 2) // 过滤掉单字词
+                .filter(phrase -> {
+                    // 检查词组是否在rankedPhrases中或其子串中
+                    return rankedPhrases.stream()
+                        .anyMatch(ranked -> ranked.contains(phrase) || phrase.contains(ranked));
+                })
+                .sorted((a, b) -> {
+                    // 首先按长度降序排序
+                    int lengthCompare = Integer.compare(b.length(), a.length());
+                    if (lengthCompare != 0) {
+                        return lengthCompare;
+                    }
+                    // 长度相同时，按在rankedPhrases中的位置排序
+                    int aIndex = rankedPhrases.indexOf(a);
+                    int bIndex = rankedPhrases.indexOf(b);
+                    if (aIndex != -1 && bIndex != -1) {
+                        return Integer.compare(aIndex, bIndex);
+                    }
+                    // 如果不在rankedPhrases中，按在文本中的位置排序
+                    return Integer.compare(text.indexOf(a), text.indexOf(b));
+                })
+                .filter(phrase -> phrase.length() > properties.getMinWordLength())
+                .limit(maxKeywords)
+                .collect(Collectors.toList());
+                
         } catch (Exception e) {
             log.error("Error extracting keywords", e);
             return new ArrayList<>();
@@ -205,7 +232,7 @@ public class KeywordExtractor {
         if (paragraphs.length > 0) {
             List<String> titleKeywords = extractKeywords(paragraphs[0], maxKeywords);
             for (String keyword : titleKeywords) {
-                keywordWeights.merge(keyword, 2.0, Double::sum); // 标题权重为2
+                keywordWeights.merge(keyword, 5.0, Double::sum); // 标题权重为5
             }
         }
 
