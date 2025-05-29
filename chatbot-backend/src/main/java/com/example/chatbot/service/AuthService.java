@@ -7,4 +7,5 @@ public interface AuthService {
     AuthResponse authenticate(AuthRequest request);
     AuthResponse register(AuthRequest request);
     void logout(String authHeader);
+    boolean validateToken(String token);
 } 

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 import type { UserRole } from '@/api/types'
+import { validateToken } from '@/utils/request'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -48,19 +49,33 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
   const requiredRoles = to.matched.some(record => record.meta.roles) 
     ? to.matched.find(record => record.meta.roles)?.meta.roles as UserRole[]
     : null
 
-  // 如果路由需要认证但用户未登录，重定向到登录页
-  if (requiresAuth && !authStore.token) {
-    next('/login')
-  } 
+  // 如果路由需要认证
+  if (requiresAuth) {
+    // 如果没有 token，直接跳转到登录页
+    if (!authStore.token) {
+      next('/login')
+      return
+    }
+
+    // 验证 token 是否有效
+    const isValid = await validateToken()
+    if (!isValid) {
+      // token 无效，清除用户信息并跳转到登录页
+      authStore.clearToken()
+      next('/login')
+      return
+    }
+  }
+
   // 如果用户已登录但访问登录/注册页，重定向到聊天页
-  else if ((to.path === '/login' || to.path === '/register') && authStore.token) {
+  if ((to.path === '/login' || to.path === '/register') && authStore.token) {
     next('/chat')
   } 
   // 如果路由需要特定角色但用户没有，重定向到聊天页

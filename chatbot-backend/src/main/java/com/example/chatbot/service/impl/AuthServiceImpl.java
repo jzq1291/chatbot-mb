@@ -16,7 +16,6 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -31,7 +30,6 @@ public class AuthServiceImpl implements AuthService {
     private final UserMapper userMapper;
     private final UserService userService;
     private final TokenBlacklistService tokenBlacklistService;
-    private final PasswordEncoder passwordEncoder;
 
     @Override
     public AuthResponse authenticate(AuthRequest request) {
@@ -92,5 +90,17 @@ public class AuthServiceImpl implements AuthService {
             // 将 token 加入黑名单
             tokenBlacklistService.addToBlacklist(token, expirationTime);
         }
+    }
+
+    @Override
+    public boolean validateToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return false;
+        }
+        String token = authHeader.substring(7);
+        if (token.isEmpty()) {
+            return false;
+        }
+        return jwtTokenProvider.validateToken(token) && !tokenBlacklistService.isBlacklisted(token);
     }
 } 

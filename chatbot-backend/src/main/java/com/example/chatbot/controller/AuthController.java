@@ -28,4 +28,12 @@ public class AuthController {
         authService.logout(authHeader);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/validate")
+    public ResponseEntity<Void> validateToken(@RequestHeader("Authorization") String authHeader) {
+        if (!authService.validateToken(authHeader)) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok().build();
+    }
 } 

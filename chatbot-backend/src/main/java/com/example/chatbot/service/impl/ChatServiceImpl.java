@@ -67,7 +67,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 2. 如果Redis中没有找到匹配的文档，则查询数据库
         if (relevantDocs.isEmpty()) {
-            relevantDocs = knowledgeBaseMapper.retrieveByKeywords(keywords);
+            relevantDocs = searchKnowledgeFromDB(keywords);
             // 更新Redis中的热门知识
             for (KnowledgeBase doc : relevantDocs) {
                 redisService.saveDocToRedis(doc);
@@ -130,6 +130,14 @@ public class ChatServiceImpl implements ChatService {
                 .sessionId(sessionId)
                 .modelId(modelId)
                 .build();
+    }
+
+    private List<KnowledgeBase> searchKnowledgeFromDB(List<String> keywords) {
+        if(keywords == null || keywords.isEmpty()){
+            return Collections.emptyList();
+        }else{
+            return knowledgeBaseMapper.retrieveByKeywords(keywords);
+        }
     }
 
     private String getOrCreateSessionId(String sessionId) {

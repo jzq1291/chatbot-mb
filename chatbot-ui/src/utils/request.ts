@@ -58,8 +58,8 @@ service.interceptors.response.use(
     // 统一显示后端返回的错误信息
     ElMessage.error(message)
     
-    // 如果是认证相关错误，清除token并跳转到登录页
-    if (errorCode?.startsWith('AUTH_')) {
+    // 如果是认证相关错误或 token 过期，清除token并跳转到登录页
+    if (errorCode?.startsWith('AUTH_') || error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('username')
       localStorage.removeItem('roles')
@@ -89,6 +89,21 @@ const put = <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T
 // 封装 DELETE 请求
 const del = <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
   return service.delete(url, config)
+}
+
+// 验证 token 是否有效
+export const validateToken = async () => {
+  const token = localStorage.getItem('token')
+  if (!token) return false
+
+  try {
+    // 尝试发送一个请求来验证 token
+    await service.get('/ai/auth/validate')
+    return true
+  } catch (error) {
+    // 如果请求失败，说明 token 无效
+    return false
+  }
 }
 
 export default {

@@ -5,7 +5,7 @@ spring:
   application:
     name: chatbot-backend
   datasource:
-    url: jdbc:postgresql://localhost:5433/chatbotmb?currentSchema=chatbotmb
+    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb
     username: postgres
     password: 123456
     driver-class-name: org.postgresql.Driver
@@ -45,6 +45,7 @@ spring:
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
   expiration: 86400000 # 24 hours
+  #expiration: 60000 #1分钟
 
 # 添加MyBatis-Plus配置
 mybatis-plus:
@@ -90,4 +91,4 @@ keyword:
     min-keyword-count: 3
     default-keyword-count: 5
     stop-words: [的, 了, 和, 是, 在, 我, 有, 这, 个, 们, 中, 为, 以, 及, 与, 或]
-    common-phrases: [安装指南, OfficePro 2023, 数据分析, 移动办公, Python, Photoshop, indows 11, MySQL, 高可用, 机器学习, 证件照, AutoCAD 2023, 微信小程序, 项目管理, Premiere, 市场营销, 容器化, Docker]
+    common-phrases: [安装指南, OfficePro 2023, 数据分析, 移动办公, Python, Photoshop, windows 11, MySQL, 高可用, 机器学习, 证件照, AutoCAD 2023, 微信小程序, 项目管理, Premiere, 市场营销, 容器化, Docker]
