@@ -2,7 +2,18 @@
   <div class="knowledge-management">
     <div class="header">
       <h2>知识库管理</h2>
-      <el-button type="primary" @click="showAddDialog">添加知识</el-button>
+      <div class="header-buttons">
+        <el-upload
+          class="upload-demo"
+          :auto-upload="false"
+          :show-file-list="false"
+          :on-change="handleFileChange"
+          accept=".xlsx,.xls"
+        >
+          <el-button type="primary">批量导入</el-button>
+        </el-upload>
+        <el-button type="primary" @click="showAddDialog">添加知识</el-button>
+      </div>
     </div>
 
     <div class="search-bar">
@@ -73,6 +84,45 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 批量导入预览对话框 -->
+    <el-dialog
+      v-model="previewDialogVisible"
+      title="批量导入预览"
+      width="70%"
+    >
+      <div class="preview-header">
+        <span>共 {{ previewData.length }} 条数据</span>
+        <el-button type="primary" @click="handleBatchImport" :loading="importing">
+          确认导入
+        </el-button>
+      </div>
+      <el-table :data="previewData" style="width: 100%" height="400">
+        <el-table-column prop="title" label="标题" />
+        <el-table-column prop="category" label="分类" width="120" />
+        <el-table-column label="内容" width="300">
+          <template #default="{ row }">
+            <div class="content-preview">
+              {{ row.content.substring(0, 100) }}{{ row.content.length > 100 ? '...' : '' }}
+              <el-button type="primary" link @click="showContentPreview(row)">
+                查看完整内容
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
+
+    <!-- 内容预览对话框 -->
+    <el-dialog
+      v-model="contentPreviewVisible"
+      title="内容预览"
+      width="50%"
+    >
+      <div class="content-preview-text">
+        {{ currentPreviewContent }}
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -83,6 +133,7 @@ import { Search } from '@element-plus/icons-vue';
 import { useKnowledgeStore } from '@/store/knowledge';
 import type { KnowledgeBase } from '@/api/knowledge';
 import { useAuthStore } from '@/store/auth'
+import * as XLSX from 'xlsx';
 
 const store = useKnowledgeStore();
 const authStore = useAuthStore();
@@ -98,12 +149,24 @@ const newKnowledge = ref<KnowledgeBase>({
   category: ''
 });
 
+const previewDialogVisible = ref(false);
+const contentPreviewVisible = ref(false);
+const previewData = ref<KnowledgeBase[]>([]);
+const currentPreviewContent = ref('');
+const importing = ref(false);
+
+// 更新分页信息
+const updatePagination = (response: any) => {
+  totalElements.value = response.totalElements;
+  currentPage.value = response.currentPage;
+};
+
 // 搜索知识
 const handleSearch = async () => {
   try {
     currentPage.value = 1;
-    await store.searchKnowledge(store.searchKeyword, currentPage.value, pageSize.value);
-    totalElements.value = store.totalElements;
+    const response = await store.searchKnowledge(store.searchKeyword, currentPage.value, pageSize.value);
+    updatePagination(response);
   } catch (error) {
     ElMessage.error('搜索失败');
   }
@@ -112,12 +175,13 @@ const handleSearch = async () => {
 // 处理页码变化
 const handlePageChange = async (page: number) => {
   try {
+    let response;
     if (store.searchKeyword) {
-      await store.searchKnowledge(store.searchKeyword, page, pageSize.value);
+      response = await store.searchKnowledge(store.searchKeyword, page, pageSize.value);
     } else {
-      await store.loadKnowledge(page, pageSize.value);
+      response = await store.loadKnowledge(page, pageSize.value);
     }
-    totalElements.value = store.totalElements;
+    updatePagination(response);
   } catch (error) {
     ElMessage.error('加载失败');
   }
@@ -144,16 +208,20 @@ const showEditDialog = (row: KnowledgeBase) => {
 // 添加或编辑知识
 const handleSave = async () => {
   try {
+    let response;
     if (isEditMode.value) {
-      await store.updateKnowledge(newKnowledge.value);
+      response = await store.updateKnowledge(newKnowledge.value);
       ElMessage.success('保存成功');
     } else {
-      await store.addKnowledge(newKnowledge.value);
+      response = await store.addKnowledge(newKnowledge.value);
       ElMessage.success('添加成功');
     }
+    updatePagination(response);
     dialogVisible.value = false;
   } catch (error) {
-    ElMessage.error(isEditMode.value ? '保存失败' : '添加失败');
+    if (error instanceof Error) {
+      ElMessage.error(isEditMode.value ? '保存失败' : '添加失败');
+    }
   }
 };
 
@@ -164,15 +232,91 @@ const handleDelete = async (row: KnowledgeBase) => {
   try {
     await ElMessageBox.confirm('确定要删除这条知识吗？', '提示', {
       confirmButtonText: '确定',
-      cancelButtonText: '取消'
+      cancelButtonText: '取消',
+      type: 'warning'
     });
     
-    await store.deleteKnowledge(row.id);
+    const response = await store.deleteKnowledge(row.id);
     ElMessage.success('删除成功');
+    updatePagination(response);
   } catch (error) {
-    if (error !== 'cancel') {
+    if (error !== 'cancel' && error !== 'close' && error instanceof Error) {
       ElMessage.error('删除失败');
     }
+  }
+};
+
+// 处理文件选择
+const handleFileChange = async (file: any) => {
+  if (!file) return;
+  
+  try {
+    const data = await readExcelFile(file.raw);
+    if (data.length > 200) {
+      ElMessage.error('导入数据不能超过200条');
+      return;
+    }
+    
+    previewData.value = data;
+    previewDialogVisible.value = true;
+  } catch (error) {
+    ElMessage.error('文件读取失败');
+    console.error('File reading error:', error);
+  }
+};
+
+// 读取Excel文件
+const readExcelFile = (file: File): Promise<KnowledgeBase[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        const knowledgeData = jsonData.map((row: any) => ({
+          title: row.title || '',
+          content: row.content || '',
+          category: row.category || ''
+        }));
+        
+        resolve(knowledgeData);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsBinaryString(file);
+  });
+};
+
+// 显示内容预览
+const showContentPreview = (row: KnowledgeBase) => {
+  currentPreviewContent.value = row.content;
+  contentPreviewVisible.value = true;
+};
+
+// 处理批量导入
+const handleBatchImport = async () => {
+  if (previewData.value.length === 0) {
+    ElMessage.warning('没有数据可导入');
+    return;
+  }
+
+  importing.value = true;
+  try {
+    const response = await store.batchImportKnowledge(previewData.value);
+    ElMessage.success('导入成功');
+    previewDialogVisible.value = false;
+    updatePagination(response);
+  } catch (error) {
+    ElMessage.error('导入失败');
+    console.error('Import error:', error);
+  } finally {
+    importing.value = false;
   }
 };
 
@@ -180,10 +324,9 @@ const handleDelete = async (row: KnowledgeBase) => {
 onMounted(async () => {
   if (authStore.token) {
     try {
-      await store.loadKnowledge(0, pageSize.value);
-      totalElements.value = store.totalElements;
+      const response = await store.loadKnowledge(1, pageSize.value);
+      updatePagination(response);
     } catch (error: any) {
-      // 如果是 403 错误，说明可能是登出导致的，不需要显示错误
       if (error.response?.status !== 403) {
         ElMessage.error('加载知识库列表失败：' + (error as Error).message)
       }
@@ -204,6 +347,11 @@ onMounted(async () => {
   margin-bottom: 20px;
 }
 
+.header-buttons {
+  display: flex;
+  gap: 10px;
+}
+
 .search-bar {
   margin-bottom: 20px;
 }
@@ -222,5 +370,25 @@ onMounted(async () => {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.content-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.content-preview-text {
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow-y: auto;
 }
 </style> 
