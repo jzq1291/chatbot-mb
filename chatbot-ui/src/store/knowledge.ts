@@ -8,6 +8,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   const loading = ref(false)
   const searchKeyword = ref('')
   const totalElements = ref(0)
+  const currentPage = ref(1)
   const pageSize = 12
 
   const loadKnowledge = async (page: number, size: number) => {
@@ -16,6 +17,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
       const response = await knowledgeApi.getKnowledgeList(page, size)
       knowledgeList.value = response.content
       totalElements.value = response.totalElements
+      currentPage.value = page
       return {
         ...response,
         currentPage: page
@@ -33,6 +35,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
       const response = await knowledgeApi.searchKnowledge(keyword, page, size)
       knowledgeList.value = response.content
       totalElements.value = response.totalElements
+      currentPage.value = page
       return {
         ...response,
         currentPage: page
@@ -50,6 +53,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
       const response = await knowledgeApi.findByCategory(category, page, size)
       knowledgeList.value = response.content
       totalElements.value = response.totalElements
+      currentPage.value = page
       return {
         ...response,
         currentPage: page
@@ -65,7 +69,8 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     loading.value = true
     try {
       await knowledgeApi.addKnowledge(knowledge)
-      return await loadKnowledge(1, pageSize)
+      const totalPages = Math.ceil((totalElements.value + 1) / pageSize)
+      return await loadKnowledge(totalPages, pageSize)
     } catch (error) {
       throw error
     } finally {
@@ -77,8 +82,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     loading.value = true
     try {
       await knowledgeApi.updateKnowledge(knowledge)
-      const currentPage = Math.ceil((knowledgeList.value.findIndex(item => item.id === knowledge.id) + 1) / pageSize)
-      return await loadKnowledge(currentPage, pageSize)
+      return await loadKnowledge(currentPage.value, pageSize)
     } catch (error) {
       throw error
     } finally {
@@ -90,14 +94,10 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     loading.value = true
     try {
       await knowledgeApi.deleteKnowledge(id)
-      const newTotalElements = totalElements.value - 1
-      const totalPages = Math.ceil(newTotalElements / pageSize)
-      const currentPage = Math.min(
-        Math.ceil(knowledgeList.value.findIndex(item => item.id === id) / pageSize),
-        totalPages
-      )
-      const targetPage = currentPage === 0 ? 1 : currentPage
-      return await loadKnowledge(targetPage, pageSize)
+      if (knowledgeList.value.length === 1 && currentPage.value > 1) {
+        return await loadKnowledge(currentPage.value - 1, pageSize)
+      }
+      return await loadKnowledge(currentPage.value, pageSize)
     } catch (error) {
       throw error
     } finally {
@@ -122,6 +122,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     loading,
     searchKeyword,
     totalElements,
+    currentPage,
     loadKnowledge,
     searchKnowledge,
     findByCategory,

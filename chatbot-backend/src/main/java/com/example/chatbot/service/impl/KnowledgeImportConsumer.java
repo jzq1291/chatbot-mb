@@ -31,7 +31,8 @@ public class KnowledgeImportConsumer {
             // 将消息体转换为字节数组
             byte[] body = message.getBody();
             // 使用ObjectMapper将字节数组反序列化为List<KnowledgeBase>
-            List<KnowledgeBase> knowledgeList = objectMapper.readValue(body, new TypeReference<List<KnowledgeBase>>() {});
+            List<KnowledgeBase> knowledgeList = objectMapper.readValue(body, new TypeReference<>() {
+            });
             
             log.info("开始处理批量导入请求，共 {} 条数据", knowledgeList.size());
             

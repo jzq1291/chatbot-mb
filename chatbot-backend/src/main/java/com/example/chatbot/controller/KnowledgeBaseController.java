@@ -69,7 +69,7 @@ public class KnowledgeBaseController {
     public ResponseEntity<Void> batchImport(@RequestBody List<KnowledgeBase> knowledgeList) {
         log.info("Received batch import request with {} items", knowledgeList.size());
         
-        if (knowledgeList == null || knowledgeList.isEmpty()) {
+        if (knowledgeList.isEmpty()) {
             log.warn("Batch import request received with empty list");
             return ResponseEntity.badRequest().build();
         }
