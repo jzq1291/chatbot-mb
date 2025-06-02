@@ -7,8 +7,12 @@ import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 public class RabbitMQConfig {
@@ -18,14 +22,18 @@ public class RabbitMQConfig {
     public static final String KNOWLEDGE_IMPORT_EXCHANGE = "knowledge.import.exchange";
     // 定义路由键常量
     public static final String KNOWLEDGE_IMPORT_ROUTING_KEY = "knowledge.import.routing.key";
+    public static final String DLX_EXCHANGE = "dlx.exchange";
+    public static final String DLX_QUEUE = "dlx.queue";
+    public static final String DLX_ROUTING_KEY = "dlx.routing.key";
 
-    /**
-     * 创建知识导入队列
-     * durable=true 表示队列持久化，即使RabbitMQ重启，队列也不会丢失
-     */
     @Bean
-    public Queue knowledgeImportQueue() {
-        return new Queue(KNOWLEDGE_IMPORT_QUEUE, true);
+    public Queue knowledgeImportQueue(@Value("${spring.rabbitmq.queue.max-length}") int maxLength) {
+        Map<String, Object> args = new HashMap<>();
+        args.put("x-message-ttl", 86400000); // 24小时TTL,消息过期时间,超时进入死信队列
+        args.put("x-max-length", maxLength); // 队列最大长度，如果超过这个长度，最早的消息将被删除,进入死信队列
+        args.put("x-dead-letter-exchange", DLX_EXCHANGE); // 死信交换机
+        args.put("x-dead-letter-routing-key", DLX_ROUTING_KEY); // 死信路由键
+        return new Queue(KNOWLEDGE_IMPORT_QUEUE, true, false, false, args);
     }
 
     /**
@@ -42,11 +50,28 @@ public class RabbitMQConfig {
      * 使用指定的路由键将队列和交换机绑定在一起
      */
     @Bean
-    public Binding knowledgeImportBinding() {
+    public Binding knowledgeImportBinding(Queue knowledgeImportQueue, DirectExchange knowledgeImportExchange) {
         return BindingBuilder
-                .bind(knowledgeImportQueue())
-                .to(knowledgeImportExchange())
+                .bind(knowledgeImportQueue)
+                .to(knowledgeImportExchange)
                 .with(KNOWLEDGE_IMPORT_ROUTING_KEY);
+    }
+
+    @Bean
+    public DirectExchange dlxExchange() {
+        return new DirectExchange(DLX_EXCHANGE);
+    }
+
+    @Bean
+    public Queue dlxQueue() {
+        Map<String, Object> args = new HashMap<>();
+        return new Queue(DLX_QUEUE, true, false, false, args);
+    }
+    @Bean
+    public Binding dlxBinding(Queue dlxQueue, DirectExchange dlxExchange) {
+        return BindingBuilder.bind(dlxQueue)
+                .to(dlxExchange)
+                .with(DLX_ROUTING_KEY);
     }
 
     /**
@@ -72,4 +97,4 @@ public class RabbitMQConfig {
         rabbitTemplate.setMessageConverter(messageConverter);
         return rabbitTemplate;
     }
-} 
+}

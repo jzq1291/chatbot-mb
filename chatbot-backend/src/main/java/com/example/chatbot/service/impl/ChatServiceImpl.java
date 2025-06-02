@@ -10,7 +10,6 @@ import com.example.chatbot.mapper.ChatMessageMapper;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.mapper.UserMapper;
 import com.example.chatbot.service.ChatService;
-import com.example.chatbot.service.RedisService;
 import com.example.chatbot.util.KeywordExtractor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;

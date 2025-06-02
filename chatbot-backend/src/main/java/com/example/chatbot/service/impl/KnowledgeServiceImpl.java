@@ -9,6 +9,7 @@ import com.example.chatbot.service.KnowledgeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +21,8 @@ import java.util.List;
 public class KnowledgeServiceImpl implements KnowledgeService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final RabbitTemplate rabbitTemplate;
+    @Value("${spring.rabbitmq.queue.batch-size:10}")
+    private int BATCH_SIZE;
 
     @Override
     public PageResponse<KnowledgeBase> findAll(int page, int size) {
@@ -92,19 +95,17 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Override
     @Transactional
     public void batchImport(List<KnowledgeBase> knowledgeList) {
-        /**
-         * 发送消息到RabbitMQ
-         * convertAndSend方法会自动将Java对象转换为JSON格式
-         * 参数说明：
-         * 1. exchange: 交换机名称
-         * 2. routingKey: 路由键
-         * 3. message: 要发送的消息内容
-         */
-        rabbitTemplate.convertAndSend(
-            RabbitMQConfig.KNOWLEDGE_IMPORT_EXCHANGE,
-            RabbitMQConfig.KNOWLEDGE_IMPORT_ROUTING_KEY,
-            knowledgeList
-        );
-        log.info("已将 {} 条知识数据发送到消息队列", knowledgeList.size());
+        // 将大列表拆分为每10条一组
+        for (int i = 0; i < knowledgeList.size(); i += BATCH_SIZE) {
+            int end = Math.min(i + BATCH_SIZE, knowledgeList.size());
+            List<KnowledgeBase> batch = knowledgeList.subList(i, end);
+            
+            rabbitTemplate.convertAndSend(
+                RabbitMQConfig.KNOWLEDGE_IMPORT_EXCHANGE,
+                RabbitMQConfig.KNOWLEDGE_IMPORT_ROUTING_KEY,
+                batch
+            );
+            log.info("已将 {} 条知识数据(批次 {})发送到消息队列", batch.size(), (i/BATCH_SIZE)+1);
+        }
     }
-} 
+}

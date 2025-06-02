@@ -1,6 +1,6 @@
 package com.example.chatbot.task;
 
-import com.example.chatbot.service.RedisService;
+import com.example.chatbot.service.impl.RedisService;
 import com.example.chatbot.util.KeywordExtractor; // 添加导入语句
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;

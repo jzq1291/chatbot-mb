@@ -5,7 +5,7 @@ spring:
   application:
     name: chatbot-backend
   datasource:
-    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb
+    url: jdbc:postgresql://localhost:5433/chatbotmb?currentSchema=chatbotmb
     username: postgres
     password: 123456
     driver-class-name: org.postgresql.Driver
@@ -28,10 +28,6 @@ spring:
           max-wait: -1
           max-idle: 8
           min-idle: 0
-      # Redis 4.0+ LFU配置
-      maxmemory: 512mb
-      maxmemory-policy: allkeys-lfu
-      maxmemory-samples: 10
   ai:
     ollama:
       base-url: http://localhost:11434
@@ -47,22 +43,28 @@ spring:
     port: 5672
     username: guest
     password: guest
-    listener:
+    listener:               # 消息监听器配置（消费者）
       simple:
         retry:
-          enabled: true
-          initial-interval: 1000
-          max-attempts: 3
-          max-interval: 10000
-          multiplier: 2.0
-        default-requeue-rejected: false
-    template:
+          enabled: true            # 启用重试机制
+          initial-interval: 1000   # 初始重试间隔(毫秒)
+          max-attempts: 3          # 最大重试次数
+          max-interval: 10000      # 最大重试间隔(毫秒)
+          multiplier: 2.0          # 重试间隔倍增因子
+        default-requeue-rejected: false # 拒绝消息时不重新入队
+        concurrency: 5     # 并发消费者数量
+        max-concurrency: 10   # 最大并发消费者数量
+        prefetch: 50         # 每个消费者预取的消息数量
+    template:              # RabbitTemplate配置（生产者）
       retry:
         enabled: true
         initial-interval: 1000
         max-attempts: 3
         max-interval: 10000
         multiplier: 2.0
+    queue:
+      max-length: 100  # 正常队列最大长度
+      batch-size: 10  # 批量处理大小
 
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970

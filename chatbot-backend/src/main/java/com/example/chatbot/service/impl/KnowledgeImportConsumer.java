@@ -22,7 +22,7 @@ public class KnowledgeImportConsumer {
 
     /**
      * 监听知识导入队列的消息
-     * @RabbitListener 注解指定要监听的队列名称
+     * RabbitListener 注解指定要监听的队列名称
      * 当队列中有新消息时，会自动调用这个方法
      */
     @RabbitListener(queues = RabbitMQConfig.KNOWLEDGE_IMPORT_QUEUE)
