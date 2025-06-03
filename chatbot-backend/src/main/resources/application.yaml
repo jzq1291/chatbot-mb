@@ -5,7 +5,7 @@ spring:
   application:
     name: chatbot-backend
   datasource:
-    url: jdbc:postgresql://localhost:5433/chatbotmb?currentSchema=chatbotmb
+    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb
     username: postgres
     password: 123456
     driver-class-name: org.postgresql.Driver
@@ -108,6 +108,16 @@ logging:
 
 cors:
   allowed-origins: http://localhost:5173,http://localhost:3000
+
+#actuator 配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always  #查看健康信息
 
 keyword:
   extractor:
