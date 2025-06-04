@@ -12,6 +12,7 @@ import com.example.chatbot.mapper.UserMapper;
 import com.example.chatbot.service.ChatService;
 import com.example.chatbot.util.KeywordExtractor;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
@@ -22,6 +23,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +34,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ChatServiceImpl implements ChatService {
     private final ChatClient chatClient;
     private final ChatMessageMapper chatMessageMapper;
@@ -46,48 +50,28 @@ public class ChatServiceImpl implements ChatService {
         return userMapper.findByUsername(username);
     }
 
-    @Override
-    @Transactional
-    public ChatResponse processMessage(ChatRequest request) {
+    // 提取公共的消息处理逻辑
+    private ProcessMessageResult processMessageCommon(ChatRequest request) {
         User currentUser = getCurrentUser();
         String sessionId = getOrCreateSessionId(request.getSessionId());
         String modelId = request.getModelId() != null ? request.getModelId() : "qwen3";
         
         // 清理用户消息
         String cleanedMessage = cleanMessage(request.getMessage());
-        saveUserMessage(cleanedMessage, sessionId, currentUser);
 
-        // 提取关键词
-        List<String> keywords = keywordExtractor.extractKeywords(cleanedMessage,3);
+        // 提取关键词并搜索相关文档
+        List<String> keywords = keywordExtractor.extractKeywords(cleanedMessage, 3);
         String searchQuery = String.join(" ", keywords);
+        List<KnowledgeBase> relevantDocs = searchRelevantDocuments(searchQuery, keywords);
 
-        // 1. 首先从Redis搜索相关文档
-        List<KnowledgeBase> relevantDocs = redisService.searchKnowledge(searchQuery);
-
-        // 2. 如果Redis中没有找到匹配的文档，则查询数据库
-        if (relevantDocs.isEmpty()) {
-            relevantDocs = searchKnowledgeFromDB(keywords);
-            // 更新Redis中的热门知识
-            for (KnowledgeBase doc : relevantDocs) {
-                redisService.saveDocToRedis(doc);
-            }
-        } else {
-            for (KnowledgeBase doc : relevantDocs) {
-                redisService.incrementKnowledgeScore(String.valueOf(doc.getId()));
-            }
-        }
-
-        StringBuilder contextBuilder = new StringBuilder();
-        if (!relevantDocs.isEmpty()) {
-            contextBuilder.append("相关文档：\n");
-            for (KnowledgeBase doc : relevantDocs) {
-                contextBuilder.append("标题：").append(doc.getTitle()).append("\n");
-                contextBuilder.append("内容：").append(doc.getContent()).append("\n\n");
-            }
-        }
-
+        // 构建上下文
+        StringBuilder contextBuilder = buildContextFromDocs(relevantDocs);
+        
         // 构建消息上下文
         List<Message> messages = buildMessageContext(sessionId);
+
+        //保存用户消息
+        saveUserMessage(cleanedMessage, sessionId, currentUser);
         
         // 如果有相关文档，添加到用户消息中
         if (!contextBuilder.isEmpty()) {
@@ -110,10 +94,51 @@ public class ChatServiceImpl implements ChatService {
                 .topK(modelOptions.getTopK())
                 .build();
 
+        return new ProcessMessageResult(messages, options, sessionId, modelId, currentUser);
+    }
+
+    // 搜索结果处理
+    private List<KnowledgeBase> searchRelevantDocuments(String searchQuery, List<String> keywords) {
+        // 1. 首先从Redis搜索相关文档
+        List<KnowledgeBase> relevantDocs = redisService.searchKnowledge(searchQuery);
+
+        // 2. 如果Redis中没有找到匹配的文档，则查询数据库
+        if (relevantDocs.isEmpty()) {
+            relevantDocs = searchKnowledgeFromDB(keywords);
+            // 更新Redis中的热门知识
+            for (KnowledgeBase doc : relevantDocs) {
+                redisService.saveDocToRedis(doc);
+            }
+        } else {
+            for (KnowledgeBase doc : relevantDocs) {
+                redisService.incrementKnowledgeScore(String.valueOf(doc.getId()));
+            }
+        }
+        return relevantDocs;
+    }
+
+    // 构建文档上下文
+    private StringBuilder buildContextFromDocs(List<KnowledgeBase> relevantDocs) {
+        StringBuilder contextBuilder = new StringBuilder();
+        if (!relevantDocs.isEmpty()) {
+            contextBuilder.append("相关文档：\n");
+            for (KnowledgeBase doc : relevantDocs) {
+                contextBuilder.append("标题：").append(doc.getTitle()).append("\n");
+                contextBuilder.append("内容：").append(doc.getContent()).append("\n\n");
+            }
+        }
+        return contextBuilder;
+    }
+
+    @Override
+    @Transactional
+    public ChatResponse processMessage(ChatRequest request) {
+        ProcessMessageResult result = processMessageCommon(request);
+
         // 调用AI模型
         String aiResponse = chatClient.prompt()
-                .messages(messages)
-                .options(options)
+                .messages(result.messages())
+                .options(result.options())
                 .call()
                 .content();
 
@@ -122,10 +147,52 @@ public class ChatServiceImpl implements ChatService {
         String cleanedResponse = cleanAiResponse(aiResponse);
 
         // 保存AI响应
-        saveAssistantMessage(cleanedResponse, sessionId, currentUser);
+        saveAssistantMessage(cleanedResponse, result.sessionId(), result.currentUser());
 
         return ChatResponse.builder()
                 .message(cleanedResponse)
+                .sessionId(result.sessionId())
+                .modelId(result.modelId())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public Flux<ChatResponse> processMessageReactive(ChatRequest request) {
+        return Mono.fromCallable(() -> processMessageCommon(request))
+            .flatMapMany(result -> {
+                StringBuilder fullResponse = new StringBuilder();
+                return chatClient.prompt()
+                        .messages(result.messages())
+                        .options(result.options())
+                        .stream()
+                        .content()
+                        .map(chunk -> {
+                            String cleanedChunk = cleanAiResponse(chunk);
+                            fullResponse.append(cleanedChunk);
+                            return buildChatResponse(cleanedChunk, result.sessionId(), result.modelId());
+                        })
+                        .doOnComplete(() -> {
+                            saveAssistantMessage(fullResponse.toString(), result.sessionId(), result.currentUser());
+                        })
+                        .doOnError(error -> {
+                            log.error("Error in streaming response: " + error.getMessage());
+                        });
+            });
+    }
+
+    // 记录处理结果的数据类
+    private record ProcessMessageResult(
+        List<Message> messages,
+        ChatOptions options,
+        String sessionId,
+        String modelId,
+        User currentUser
+    ) {}
+
+    private ChatResponse buildChatResponse(String message, String sessionId, String modelId) {
+        return ChatResponse.builder()
+                .message(message)
                 .sessionId(sessionId)
                 .modelId(modelId)
                 .build();

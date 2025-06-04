@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { chatApi } from '@/api/chat'
+import { chatApi, type ChatResponse } from '@/api/chat'
 
 // 定义消息接口
 export interface Message {
@@ -155,6 +155,50 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // 发送流式消息
+  const sendMessageStreaming = async (content: string, model: string, onChunk: (chunk: string) => void) => {
+    if (!currentSessionId.value) {
+      await createNewChat()
+    }
+
+    // 添加用户消息
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content
+    }
+    messages.value.push(userMessage)
+
+    // 添加空的助手消息，用于流式更新
+    const assistantMessage: ChatMessage = {
+      role: 'assistant',
+      content: ''
+    }
+    messages.value.push(assistantMessage)
+
+    try {
+      let accumulatedMessage = ''
+      await chatApi.sendMessageStreaming({
+        message: content,
+        sessionId: currentSessionId.value,
+        modelId: model
+      }, (response) => {
+        // 累积消息内容
+        accumulatedMessage += response.message
+        // 更新最后一条消息
+        if (messages.value.length > 0) {
+          const lastMessage = messages.value[messages.value.length - 1]
+          if (lastMessage.role === 'assistant') {
+            lastMessage.content = accumulatedMessage
+          }
+        }
+        // 调用回调函数
+        onChunk(response.message)
+      })
+    } catch (error) {
+      console.error('Failed to send streaming message:', error)
+    }
+  }
+
   // 重置状态
   const resetState = () => {
     sessions.value = []
@@ -176,6 +220,7 @@ export const useChatStore = defineStore('chat', () => {
     createNewChat,
     deleteSession,
     sendMessage,
+    sendMessageStreaming,
     resetState
   }
 }) 

@@ -47,7 +47,7 @@
           :key="index"
           :class="['message', message.role]"
         >
-          <div class="message-content">{{ message.content }}</div>
+          <div class="message-content" v-html="formatMessage(message.content)"></div>
         </div>
       </div>
 
@@ -86,6 +86,10 @@ const inputMessage = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 // 创建响应式变量：加载状态
 const loading = ref(false)
+// 创建响应式变量：流式响应状态
+const isStreaming = ref(false)
+// 创建响应式变量：流式响应内容
+const streamingContent = ref('')
 
 // 处理模型变更
 const handleModelChange = (model: string) => {
@@ -100,22 +104,37 @@ const handleEnterKey = (e: KeyboardEvent) => {
   }
 }
 
+// 格式化消息内容，将换行符转换为 <br>
+const formatMessage = (content: string) => {
+  return content.replace(/\n/g, '<br>')
+}
+
 // 发送消息
 const sendMessage = async () => {
-  if (!inputMessage.value.trim()) {
-    ElMessage.warning('请输入消息内容')
-    return
-  }
+  if (!inputMessage.value.trim()) return
 
   const message = inputMessage.value
-  inputMessage.value = '' // 立即清空输入框
+  inputMessage.value = ''
   loading.value = true
+
   try {
-    await store.sendMessage(message, store.selectedModel)
-    await nextTick()
-    scrollToBottom()
+    if (message.startsWith('A')) {
+      // 使用流式响应
+      await store.sendMessageStreaming(message, store.selectedModel, (chunk) => {
+        // 这里不需要额外处理，因为 store 已经处理了消息的累积
+        nextTick(() => {
+          scrollToBottom()
+        })
+      })
+    } else {
+      // 使用普通响应
+      await store.sendMessage(message, store.selectedModel)
+      nextTick(() => {
+        scrollToBottom()
+      })
+    }
   } catch (error) {
-    ElMessage.error('发送消息失败：' + (error as Error).message)
+    console.error('Failed to send message:', error)
   } finally {
     loading.value = false
   }

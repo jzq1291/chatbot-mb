@@ -1,49 +1,66 @@
+# 服务器配置
 server:
-  port: 8082
+  port: 8082  # 应用服务端口
 
 spring:
+  # 应用名称
   application:
     name: chatbot-backend
+  
+  # 数据库配置
   datasource:
-    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb
-    username: postgres
-    password: 123456
-    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb  # 数据库连接URL
+    username: postgres  # 数据库用户名
+    password: 123456   # 数据库密码
+    driver-class-name: org.postgresql.Driver  # 数据库驱动类
+  
+  # 数据库版本控制配置
   flyway:
-    enabled: false
-    baseline-on-migrate: true
-    locations: classpath:db/migration
-    schemas: chatbotmb
-    table: flyway_schema_history
-
+    enabled: false  # 是否启用Flyway
+    baseline-on-migrate: true  # 是否在迁移时创建基线
+    locations: classpath:db/migration  # 迁移脚本位置
+    schemas: chatbotmb  # 数据库schema
+    table: flyway_schema_history  # 版本控制表名
+  
+  # Redis配置
   data:
     redis:
-      host: localhost
-      port: 6379
-      database: 0
-      timeout: 10000
+      host: localhost  # Redis服务器地址
+      port: 6379      # Redis服务器端口
+      # Lettuce连接池配置
       lettuce:
         pool:
-          max-active: 8
-          max-wait: -1
-          max-idle: 8
-          min-idle: 0
+          max-active: 8    # 最大活动连接数
+          max-idle: 8      # 最大空闲连接数
+          min-idle: 0      # 最小空闲连接数
+          max-wait: -1ms   # 获取连接最大等待时间，-1表示无限等待
+      timeout: 5000ms      # 连接超时时间
+      database: 0          # 使用的数据库索引
+      client-type: lettuce # 客户端类型
+      # Redis服务器参数配置
+      properties:
+        maxmemory: 1000mb  # 最大内存限制
+        maxmemory-policy: volatile-lru  # 内存淘汰策略：对设置了过期时间的key采用LRU算法
+
+  # AI模型配置
   ai:
     ollama:
-      base-url: http://localhost:11434
+      base-url: http://localhost:11434  # Ollama服务地址
       chat:
-        model: qwen3:4b  # 默认模型
+        model: qwen3:4b  # 默认使用的模型
         options:
-          temperature: 0.7
-          top-p: 0.95
-          top-k: 5
+          temperature: 0.7  # 温度参数，控制输出的随机性
+          top-p: 0.95      # 核采样参数
+          top-k: 5         # 保留概率最高的前k个token
 
+  # RabbitMQ配置
   rabbitmq:
-    host: localhost
-    port: 5672
-    username: guest
-    password: guest
-    listener:               # 消息监听器配置（消费者）
+    host: localhost  # RabbitMQ服务器地址
+    port: 5672      # RabbitMQ服务器端口
+    username: guest # 用户名
+    password: guest # 密码
+    # 消费者配置
+    listener:
       simple:
         retry:
           enabled: true            # 启用重试机制
@@ -55,50 +72,55 @@ spring:
         concurrency: 5     # 并发消费者数量
         max-concurrency: 10   # 最大并发消费者数量
         prefetch: 50         # 每个消费者预取的消息数量
-    template:              # RabbitTemplate配置（生产者）
+    # 生产者配置
+    template:
       retry:
         enabled: true
         initial-interval: 1000
         max-attempts: 3
         max-interval: 10000
         multiplier: 2.0
+    # 队列配置
     queue:
       max-length: 100  # 正常队列最大长度
-      batch-size: 10  # 批量处理大小
+      batch-size: 10   # 批量处理大小
 
+# JWT配置
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expiration: 86400000 # 24 hours
-  #expiration: 60000 #1分钟
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970  # JWT密钥
+  expiration: 86400000  # Token过期时间（24小时）
+  #expiration: 60000    # Token过期时间（1分钟，已注释）
 
-# 添加MyBatis-Plus配置
+# MyBatis-Plus配置
 mybatis-plus:
-  mapper-locations: classpath:mapper/*.xml
-  type-aliases-package: com.example.chatbot.entity
+  mapper-locations: classpath:mapper/*.xml  # Mapper XML文件位置
+  type-aliases-package: com.example.chatbot.entity  # 实体类包路径
   configuration:
-    map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true  # 开启驼峰命名转换
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # SQL日志输出
   global-config:
     db-config:
-      id-type: auto
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+      id-type: auto  # 主键生成策略
+      logic-delete-field: deleted  # 逻辑删除字段
+      logic-delete-value: 1        # 逻辑删除值
+      logic-not-delete-value: 0    # 逻辑未删除值
 
+# 聊天机器人模型配置
 chatbot:
   model:
     options:
-      qwen3:
+      qwen3:  # 通义千问模型配置
         model: qwen3:4b
         temperature: 0.7
         top-p: 0.95
         top-k: 5
-      deepseekR1:
+      deepseekR1:  # DeepSeek模型配置
         model: deepseek-r1:7b
         temperature: 0.7
         top-p: 0.95
         top-k: 50
 
+# 日志配置
 logging:
   level:
     org.springframework: INFO
@@ -106,23 +128,25 @@ logging:
     com.example.chatbot: DEBUG
     org.springframework.transaction : DEBUG
 
+# CORS跨域配置
 cors:
-  allowed-origins: http://localhost:5173,http://localhost:3000
+  allowed-origins: http://localhost:5173,http://localhost:3000  # 允许的源
 
-#actuator 配置
+# Spring Boot Actuator配置
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info  # 暴露的端点
   endpoint:
     health:
-      show-details: always  #查看健康信息
+      show-details: always  # 显示详细的健康信息
 
+# 关键词提取配置
 keyword:
   extractor:
-    min-word-length: 3
-    min-keyword-count: 3
-    default-keyword-count: 5
-    stop-words: [的, 了, 和, 是, 在, 我, 有, 这, 个, 们, 中, 为, 以, 及, 与, 或]
-    common-phrases: [安装指南, OfficePro 2023, 数据分析, 移动办公, Python, Photoshop, windows 11, MySQL, 高可用, 机器学习, 证件照, AutoCAD 2023, 微信小程序, 项目管理, Premiere, 市场营销, 容器化, Docker]
+    min-word-length: 3        # 最小词长度
+    min-keyword-count: 3      # 最小关键词数量
+    default-keyword-count: 5  # 默认关键词数量
+    stop-words: [的, 了, 和, 是, 在, 我, 有, 这, 个, 们, 中, 为, 以, 及, 与, 或]  # 停用词列表
+    common-phrases: [安装指南, OfficePro 2023, 数据分析, 移动办公, Python, Photoshop, windows 11, MySQL, 高可用, 机器学习, 证件照, AutoCAD 2023, 微信小程序, 项目管理, Premiere, 市场营销, 容器化, Docker]  # 常用短语列表
