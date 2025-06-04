@@ -167,16 +167,18 @@ public class ChatServiceImpl implements ChatService {
                         .options(result.options())
                         .stream()
                         .content()
-                        .map(chunk -> {
-                            String cleanedChunk = cleanAiResponse(chunk);
-                            fullResponse.append(cleanedChunk);
-                            return buildChatResponse(cleanedChunk, result.sessionId(), result.modelId());
+                        .mapNotNull(chunk -> {
+                            if (!chunk.isEmpty()) {
+                                fullResponse.append(chunk);
+                                return buildChatResponse(chunk, result.sessionId(), result.modelId());
+                            }
+                            return null;
                         })
                         .doOnComplete(() -> {
-                            saveAssistantMessage(fullResponse.toString(), result.sessionId(), result.currentUser());
+                            saveAssistantMessage(cleanAiResponse(fullResponse.toString()), result.sessionId(), result.currentUser());
                         })
                         .doOnError(error -> {
-                            log.error("Error in streaming response: " + error.getMessage());
+                            log.error("Error in streaming response: {}", error.getMessage());
                         });
             });
     }
@@ -195,6 +197,7 @@ public class ChatServiceImpl implements ChatService {
                 .message(message)
                 .sessionId(sessionId)
                 .modelId(modelId)
+                .sequence(UUID.randomUUID().toString())
                 .build();
     }
 
@@ -241,7 +244,7 @@ public class ChatServiceImpl implements ChatService {
         List<Message> messages = new ArrayList<>();
         
         // 添加系统提示，包含知识库信息
-        String systemPrompt = "你是一个专业的客服助手，请根据以下知识库内容回答用户问题。如果知识库中没有相关信息，请明确告知用户。\n\n";
+        String systemPrompt = "你是一个专业的客服助手，请根据以下知识库内容回答用户问题。只输出最终答案，不解释过程，流式输出时也省略思考过程\n\n";
         messages.add(new SystemMessage(systemPrompt));
 
         // 添加历史消息
@@ -257,14 +260,20 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private String cleanAiResponse(String response) {
-        if (response.contains("<think>")) {
-            int startIndex = response.indexOf("<think>");
-            int endIndex = response.indexOf("</think>");
-            if (startIndex != -1 && endIndex != -1) {
-                return response.substring(endIndex + 8).trim();
-            }
+        if (response == null) {
+            return "";
         }
-        return response;
+        
+        // 1. 移除think块及其之前的所有内容
+        String cleaned = response.replaceAll("(?s).*?</think>\\s*", "");
+        
+        // 2. 移除其他HTML标签
+        cleaned = cleaned.replaceAll("<[^>]+>", "");
+        
+        // 3. 清理空白字符
+        cleaned = cleaned.replaceAll("\\s+", " ").trim();
+        
+        return cleaned;
     }
 
     @Override

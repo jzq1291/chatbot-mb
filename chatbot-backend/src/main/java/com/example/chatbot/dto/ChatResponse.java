@@ -10,4 +10,5 @@ public class ChatResponse {
     private String sessionId;
     private String role;
     private String modelId;
+    private String sequence;
 } 

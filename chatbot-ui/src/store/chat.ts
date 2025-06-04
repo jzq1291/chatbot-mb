@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import { chatApi, type ChatResponse } from '@/api/chat'
 
 // 定义消息接口
@@ -33,6 +33,8 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref<ChatMessage[]>([])
   const availableModels = ref<string[]>([])
   const selectedModel = ref<string>('')
+  const isStreaming = ref<boolean>(false)
+  const streamingContent = ref<string>('')
 
   // 加载可用模型列表
   const loadAvailableModels = async () => {
@@ -79,7 +81,7 @@ export const useChatStore = defineStore('chat', () => {
   // 切换会话
   const switchSession = async (sessionId: string) => {
     try {
-      // 先清空当前消息
+      // 重置消息状态
       messages.value = []
       const history = await chatApi.getHistory(sessionId)
       messages.value = history.map((item: any) => ({
@@ -87,6 +89,9 @@ export const useChatStore = defineStore('chat', () => {
         content: item.message
       }))
       currentSessionId.value = sessionId
+      // 确保流式响应状态被重置
+      isStreaming.value = false
+      streamingContent.value = ''
     } catch (error) {
       console.error('Failed to switch session:', error)
       throw error
@@ -101,6 +106,9 @@ export const useChatStore = defineStore('chat', () => {
       sessions.value.unshift(newSessionId)
       currentSessionId.value = newSessionId
       messages.value = []
+      // 确保流式响应状态被重置
+      isStreaming.value = false
+      streamingContent.value = ''
     } catch (error) {
       console.error('Failed to create new session:', error)
       throw error
@@ -168,7 +176,7 @@ export const useChatStore = defineStore('chat', () => {
     }
     messages.value.push(userMessage)
 
-    // 添加空的助手消息，用于流式更新
+    // 添加一个空的助手消息用于流式更新
     const assistantMessage: ChatMessage = {
       role: 'assistant',
       content: ''
@@ -176,26 +184,27 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.push(assistantMessage)
 
     try {
-      let accumulatedMessage = ''
       await chatApi.sendMessageStreaming({
         message: content,
         sessionId: currentSessionId.value,
         modelId: model
-      }, (response) => {
-        // 累积消息内容
-        accumulatedMessage += response.message
-        // 更新最后一条消息
-        if (messages.value.length > 0) {
-          const lastMessage = messages.value[messages.value.length - 1]
-          if (lastMessage.role === 'assistant') {
-            lastMessage.content = accumulatedMessage
+      }, async (response) => {
+        // 获取最后一条消息
+        const lastMessage = messages.value[messages.value.length - 1]
+        if (lastMessage && lastMessage.role === 'assistant') {
+          // 将新消息追加到现有内容后面
+          lastMessage.content += response.message
+          // 等待 DOM 更新完成
+          await nextTick()
+          if (onChunk) {
+            onChunk(response.message)
           }
         }
-        // 调用回调函数
-        onChunk(response.message)
       })
     } catch (error) {
-      console.error('Failed to send streaming message:', error)
+      // 如果发送失败，移除最后一条消息
+      messages.value.pop()
+      throw error
     }
   }
 
@@ -206,6 +215,8 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = []
     availableModels.value = []
     selectedModel.value = ''
+    isStreaming.value = false
+    streamingContent.value = ''
   }
 
   return {

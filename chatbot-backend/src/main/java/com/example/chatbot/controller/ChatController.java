@@ -33,16 +33,35 @@ public class ChatController {
         if (request.getModelId() == null) {
             request.setModelId("qwen3");
         }
+        
+        // 用于跟踪是否已经过了think块
+        final boolean[] passedThinkBlock = {false};
+        
         return chatService.processMessageReactive(request)
-                .map(response -> {
+                .mapNotNull(response -> {
                     try {
-                        // 将响应转换为SSE格式
-                        return objectMapper.writeValueAsString(response);
+                        String message = response.getMessage();
+                        
+                        // 如果遇到</think>，标记可以开始发送内容
+                        if (!passedThinkBlock[0] && message.contains("</think>")) {
+                            passedThinkBlock[0] = true;
+                            return null;
+                        }
+                        
+                        // 只有在过了think块后才发送内容
+                        if (passedThinkBlock[0]) {
+                            // 移除开头的换行符
+                            message = message.replaceAll("^\\n+", "");
+                            response.setMessage(message);
+                            return objectMapper.writeValueAsString(response);
+                        }
+                        
+                        return null;
                     } catch (Exception e) {
                         return "data: {\"error\": \"" + e.getMessage() + "\"}\n\n";
                     }
                 })
-                .filter(str -> !str.trim().isEmpty()); // 过滤掉空消息
+                .filter(str -> str != null && !str.trim().isEmpty()); // 过滤掉空消息和think块内容
     }
 
     @GetMapping("/models")

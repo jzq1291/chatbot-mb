@@ -38,7 +38,7 @@ export const chatApi = {
   // 发送流式消息
   sendMessageStreaming: (data: ChatRequest, onChunk: (chunk: ChatResponse) => void) => {
     let buffer = '' // 用于存储未完成的数据
-    let lastMessage = '' // 记录上一次的完整消息
+    let processedMessages = new Set() // 用于跟踪已处理的消息
     return request.post<ChatResponse>('/ai/chat/send/reactive', data, {
       responseType: 'stream',
       onDownloadProgress: (progressEvent: AxiosProgressEvent) => {
@@ -47,26 +47,31 @@ export const chatApi = {
           try {
             // 将新数据添加到缓冲区
             buffer += chunk
-            // 处理完整的消息
-            const messages = buffer.split('\n\n')
-            // 保留最后一个可能不完整的消息
-            buffer = messages.pop() || ''
             
-            // 处理完整的消息
-            for (const message of messages) {
+            // 处理所有可能的完整消息
+            while (buffer.includes('data:')) {
+              // 找到第一个 data: 的位置
+              const dataStart = buffer.indexOf('data:')
+              if (dataStart === -1) break
+              
+              // 找到下一个 data: 的位置，如果没有则使用缓冲区末尾
+              const nextDataStart = buffer.indexOf('data:', dataStart + 5)
+              const messageEnd = nextDataStart === -1 ? buffer.length : nextDataStart
+              
+              // 提取当前消息
+              const message = buffer.slice(dataStart, messageEnd).trim()
+              buffer = buffer.slice(messageEnd)
+              
               if (message.startsWith('data:')) {
                 try {
                   const jsonStr = message.slice(5).trim() // 跳过 'data:' 并去除空白字符
                   if (jsonStr && jsonStr !== 'data:') { // 确保不是空字符串或单独的 data:
                     const response = JSON.parse(jsonStr)
-                    // 只处理新的内容
-                    if (response.message && response.message !== lastMessage) {
-                      const newContent = response.message.slice(lastMessage.length)
-                      onChunk({
-                        ...response,
-                        message: newContent
-                      })
-                      lastMessage = response.message
+                    // 使用消息内容、会话ID和序列号组合作为唯一标识
+                    const messageKey = `${response.message}-${response.sessionId}-${response.sequence}`
+                    if (!processedMessages.has(messageKey)) {
+                      processedMessages.add(messageKey)
+                      onChunk(response)
                     }
                   }
                 } catch (e) {

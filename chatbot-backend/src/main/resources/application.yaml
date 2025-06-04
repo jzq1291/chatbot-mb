@@ -9,7 +9,7 @@ spring:
   
   # 数据库配置
   datasource:
-    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb  # 数据库连接URL
+    url: jdbc:postgresql://localhost:5433/chatbotmb?currentSchema=chatbotmb  # 数据库连接URL
     username: postgres  # 数据库用户名
     password: 123456   # 数据库密码
     driver-class-name: org.postgresql.Driver  # 数据库驱动类
@@ -26,7 +26,7 @@ spring:
   data:
     redis:
       host: localhost  # Redis服务器地址
-      port: 6379      # Redis服务器端口
+      port: 6379       # Redis服务器端口
       # Lettuce连接池配置
       lettuce:
         pool:
@@ -37,7 +37,7 @@ spring:
       timeout: 5000ms      # 连接超时时间
       database: 0          # 使用的数据库索引
       client-type: lettuce # 客户端类型
-      # Redis服务器参数配置
+      # Redis服务器参数配置（需要修改redis.conf）
       properties:
         maxmemory: 1000mb  # 最大内存限制
         maxmemory-policy: volatile-lru  # 内存淘汰策略：对设置了过期时间的key采用LRU算法
@@ -45,20 +45,20 @@ spring:
   # AI模型配置
   ai:
     ollama:
-      base-url: http://localhost:11434  # Ollama服务地址
+      base-url: http://localhost:11434   # Ollama服务地址
       chat:
-        model: qwen3:4b  # 默认使用的模型
+        model: qwen3:4b     # 默认使用的模型
         options:
           temperature: 0.7  # 温度参数，控制输出的随机性
-          top-p: 0.95      # 核采样参数
-          top-k: 5         # 保留概率最高的前k个token
+          top-p: 0.95       # 核采样参数
+          top-k: 5          # 保留概率最高的前k个token
 
   # RabbitMQ配置
   rabbitmq:
     host: localhost  # RabbitMQ服务器地址
-    port: 5672      # RabbitMQ服务器端口
-    username: guest # 用户名
-    password: guest # 密码
+    port: 5672       # RabbitMQ服务器端口
+    username: guest  # 用户名
+    password: guest  # 密码
     # 消费者配置
     listener:
       simple:
@@ -69,9 +69,9 @@ spring:
           max-interval: 10000      # 最大重试间隔(毫秒)
           multiplier: 2.0          # 重试间隔倍增因子
         default-requeue-rejected: false # 拒绝消息时不重新入队
-        concurrency: 5     # 并发消费者数量
+        concurrency: 5        # 并发消费者数量
         max-concurrency: 10   # 最大并发消费者数量
-        prefetch: 50         # 每个消费者预取的消息数量
+        prefetch: 50          # 每个消费者预取的消息数量
     # 生产者配置
     template:
       retry:
@@ -87,20 +87,20 @@ spring:
 
 # JWT配置
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970  # JWT密钥
-  expiration: 86400000  # Token过期时间（24小时）
-  #expiration: 60000    # Token过期时间（1分钟，已注释）
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970   # JWT密钥
+  expiration: 86400000   # Token过期时间（24小时）
+  #expiration: 60000     # Token过期时间（1分钟，已注释）
 
 # MyBatis-Plus配置
 mybatis-plus:
-  mapper-locations: classpath:mapper/*.xml  # Mapper XML文件位置
-  type-aliases-package: com.example.chatbot.entity  # 实体类包路径
+  mapper-locations: classpath:mapper/*.xml           # Mapper XML文件位置
+  type-aliases-package: com.example.chatbot.entity   # 实体类包路径
   configuration:
     map-underscore-to-camel-case: true  # 开启驼峰命名转换
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # SQL日志输出
   global-config:
     db-config:
-      id-type: auto  # 主键生成策略
+      id-type: auto   # 主键生成策略
       logic-delete-field: deleted  # 逻辑删除字段
       logic-delete-value: 1        # 逻辑删除值
       logic-not-delete-value: 0    # 逻辑未删除值
@@ -137,7 +137,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info  # 暴露的端点
+        include: health,info,beans  # 暴露的端点
   endpoint:
     health:
       show-details: always  # 显示详细的健康信息
