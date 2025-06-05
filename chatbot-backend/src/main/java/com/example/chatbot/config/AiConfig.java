@@ -12,7 +12,7 @@ public class AiConfig {
     public ChatClient chatClient(OllamaChatModel model){
         return ChatClient
                 .builder(model)
-                .defaultSystem("你的名字是强哥，只输出最终答案，不解释过程，流式输出时也省略思考过程。")
+                .defaultSystem("你的名字是强哥，一个只能助手")
                 .defaultAdvisors(new SimpleLoggerAdvisor())
                 .build();
     }

@@ -18,21 +18,38 @@ public class RedisService {
     private static final String HOT_KNOWLEDGE_KEY = "hot_knowledge";
     private static final String KNOWLEDGE_DATA_KEY = "knowledge_data:";
     private static final String KEYWORD_INDEX_KEY = "keyword_index:";
-    private static final double HOT_THRESHOLD = 5.0;
-    private static final int MAX_KEYWORDS_PER_DOC = 5;   //每篇文章提取5个关键词
+    private static final double HOT_THRESHOLD = 5.0;     // 访问超过5次被列为热知识，不自动清理
+    private static final int MAX_KEYWORDS_PER_DOC = 5;   // 每篇文章提取5个关键词
     private static final long DEFAULT_EXPIRATION_DAYS = 7;
+    private static final int MAX_HOT_KNOWLEDGE_NUMBER = 50;  // 热知识最大数量
 
     public void saveDocToRedis(KnowledgeBase knowledge) {
         String docId = knowledge.getId().toString();
         
-        // 1. 更新热门知识分数
+        // 1. 检查并维护热知识集合大小
+        Long currentSize = redisTemplate.opsForZSet().size(HOT_KNOWLEDGE_KEY);
+        if (currentSize != null && currentSize >= MAX_HOT_KNOWLEDGE_NUMBER) {
+            // 如果达到最大数量，移除分数最低的条目
+            Set<ZSetOperations.TypedTuple<Object>> lowestScoreItems = redisTemplate.opsForZSet()
+                    .rangeWithScores(HOT_KNOWLEDGE_KEY, 0, 0);
+            if (!lowestScoreItems.isEmpty()) {
+                ZSetOperations.TypedTuple<Object> lowestItem = lowestScoreItems.iterator().next();
+                if (lowestItem != null && lowestItem.getValue() != null) {
+                    String lowestId = lowestItem.getValue().toString();
+                    // 只从热知识集合中移除分数最低的条目
+                    redisTemplate.opsForZSet().remove(HOT_KNOWLEDGE_KEY, lowestId);
+                }
+            }
+        }
+        
+        // 2. 更新热门知识分数
         redisTemplate.opsForZSet().incrementScore(HOT_KNOWLEDGE_KEY, docId, 1);
         
-        // 2. 存储完整知识数据，设置过期时间
+        // 3. 存储完整知识数据，设置过期时间
         redisTemplate.opsForValue().set(KNOWLEDGE_DATA_KEY + docId, knowledge, 
             java.time.Duration.ofDays(DEFAULT_EXPIRATION_DAYS));
         
-        // 3. 更新关键词索引
+        // 4. 更新关键词索引
         updateKeywordIndex(knowledge);
     }
 
@@ -87,11 +104,11 @@ public class RedisService {
                     .collect(Collectors.toList());
         }
 
-        // 3. 如果没有找到匹配的文档，返回热门知识
-        return getHotKnowledge();
+        // 3. 如果没有找到匹配的文档，返回热门知识，并传入搜索词
+        return getHotKnowledge(searchTerms);
     }
 
-    public List<KnowledgeBase> getHotKnowledge() {
+    public List<KnowledgeBase> getHotKnowledge(String[] searchTerms) {
         Set<ZSetOperations.TypedTuple<Object>> hotItems = redisTemplate.opsForZSet()
                 .reverseRangeWithScores(HOT_KNOWLEDGE_KEY, 0, -1);
         
@@ -100,15 +117,25 @@ public class RedisService {
         }
 
         return hotItems.stream()
-                .filter(tuple -> {
-                    Double score = tuple.getScore();
-                    return score != null && score >= HOT_THRESHOLD;
-                })
                 .map(tuple -> {
                     String id = Objects.requireNonNull(tuple.getValue()).toString();
                     return (KnowledgeBase) redisTemplate.opsForValue().get(KNOWLEDGE_DATA_KEY + id);
                 })
                 .filter(Objects::nonNull)
+                .filter(knowledge -> {
+                    if (searchTerms == null || searchTerms.length == 0) {
+                        return true;
+                    }
+                    String title = knowledge.getTitle().toLowerCase();
+                    String content = knowledge.getContent().toLowerCase();
+                    String category = knowledge.getCategory().toLowerCase();
+                    
+                    // 检查是否包含任意一个搜索词
+                    return Arrays.stream(searchTerms)
+                            .anyMatch(term -> title.contains(term) || 
+                                           content.contains(term) || 
+                                           category.contains(term));
+                })
                 .collect(Collectors.toList());
     }
 

@@ -244,7 +244,16 @@ public class ChatServiceImpl implements ChatService {
         List<Message> messages = new ArrayList<>();
         
         // 添加系统提示，包含知识库信息
-        String systemPrompt = "你是一个专业的客服助手，请根据以下知识库内容回答用户问题。只输出最终答案，不解释过程，流式输出时也省略思考过程\n\n";
+
+//        String systemPrompt = "你是一个专业的客服助手，请根据以下知识库内容回答用户问题。只输出最终答案，不解释过程，流式输出时也省略思考过程\n\n";
+//        messages.add(new SystemMessage(systemPrompt));
+        String systemPrompt = """
+            你是一个智能助手，名字叫强哥。请严格遵守以下规则：
+            1.**输出要求**：所有回答（包括流式输出）必须直接给出最终答案，完全省略思考过程、推理步骤或解释性文字。
+            2.**知识库优先级**：当用户提供本地知识库内容（通过UserMessage传递）时，必须优先结合知识库内容回答；若知识库无相关答案，再调用自身知识。
+            3.**角色一致性**：回答时需以“强哥”自称（例如：“强哥为您解答：...”），保持简洁专业的语气。
+        """;
+        messages.add(new SystemMessage(systemPrompt));
         messages.add(new SystemMessage(systemPrompt));
 
         // 添加历史消息

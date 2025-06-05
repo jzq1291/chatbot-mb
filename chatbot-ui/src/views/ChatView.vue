@@ -49,6 +49,16 @@
         >
           <div class="message-content" v-html="formatMessage(message.content)"></div>
         </div>
+        <!-- 思考中的动画 -->
+        <div v-if="store.showThinking" class="message assistant">
+          <div class="message-content thinking">
+            <div class="thinking-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 输入区域 -->
@@ -61,6 +71,9 @@
           @keyup.enter="handleEnterKey"
         />
         <div class="button-group">
+          <div class="left-controls">
+            <el-checkbox v-model="useStreaming" label="Stream" />
+          </div>
           <el-button type="primary" @click="sendMessage" :loading="loading">
             发送
           </el-button>
@@ -71,7 +84,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useChatStore } from '@/store/chat'
 import { Close } from '@element-plus/icons-vue'
@@ -86,10 +99,8 @@ const inputMessage = ref('')
 const messagesContainer = ref<HTMLElement | null>(null)
 // 创建响应式变量：加载状态
 const loading = ref(false)
-// 创建响应式变量：流式响应状态
-const isStreaming = ref(false)
-// 创建响应式变量：流式响应内容
-const streamingContent = ref('')
+// 创建响应式变量：流式输出开关
+const useStreaming = ref(false)
 
 // 处理模型变更
 const handleModelChange = (model: string) => {
@@ -118,10 +129,10 @@ const sendMessage = async () => {
   loading.value = true
 
   try {
-    if (message.startsWith('A')) {
+    if (useStreaming.value) {
       // 使用流式响应
       await store.sendMessageStreaming(message, store.selectedModel, (chunk) => {
-        // 这里不需要额外处理，因为 store 已经处理了消息的累积
+        // 每次收到新的数据块时，更新UI并滚动到底部
         nextTick(() => {
           scrollToBottom()
         })
@@ -135,6 +146,7 @@ const sendMessage = async () => {
     }
   } catch (error) {
     console.error('Failed to send message:', error)
+    ElMessage.error('发送消息失败，请重试')
   } finally {
     loading.value = false
   }
@@ -181,13 +193,23 @@ onMounted(async () => {
         store.loadSessions(),
         store.loadAvailableModels()
       ])
+      // 从本地存储加载流式输出设置
+      const savedStreamingSetting = localStorage.getItem('useStreaming')
+      if (savedStreamingSetting !== null) {
+        useStreaming.value = JSON.parse(savedStreamingSetting)
+      }
     } catch (error: any) {
-      // 如果是 403 错误，说明可能是登出导致的，不需要显示错误
       if (error.response?.status !== 403) {
         console.error('Failed to load initial data:', error)
       }
     }
   }
+})
+
+// 监听流式输出设置变化
+watch(useStreaming, (newValue) => {
+  // 保存设置到本地存储
+  localStorage.setItem('useStreaming', JSON.stringify(newValue))
 })
 </script>
 
@@ -298,14 +320,27 @@ onMounted(async () => {
   overflow-y: auto;
   padding: 20px;
   background-color: #fff;
-  border-radius: 4px;
+  border-radius: 8px;
   margin-bottom: 20px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .message {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   display: flex;
   flex-direction: column;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message.user {
@@ -318,30 +353,118 @@ onMounted(async () => {
 
 .message-content {
   max-width: 80%;
-  padding: 10px 15px;
-  border-radius: 4px;
+  padding: 12px 16px;
+  border-radius: 8px;
   word-wrap: break-word;
+  line-height: 1.6;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .user .message-content {
   background-color: #409EFF;
   color: #fff;
+  border-top-right-radius: 2px;
 }
 
 .assistant .message-content {
   background-color: #f5f7fa;
   color: #303133;
+  border-top-left-radius: 2px;
 }
 
 .input-area {
   background-color: #fff;
   padding: 20px;
-  border-radius: 4px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .button-group {
   margin-top: 10px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.left-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+:deep(.el-textarea__inner) {
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: none;
+  transition: all 0.3s;
+}
+
+:deep(.el-textarea__inner:focus) {
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+:deep(.el-checkbox__label) {
+  font-size: 14px;
+  color: #606266;
+}
+
+:deep(.el-button--primary) {
+  padding: 10px 20px;
+  font-size: 14px;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+:deep(.el-button--primary:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.message-content.thinking {
+  min-width: 60px;
+  background-color: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thinking-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thinking-dots span {
+  width: 8px;
+  height: 8px;
+  background-color: #909399;
+  border-radius: 50%;
+  animation: thinking 1.4s infinite ease-in-out;
+}
+
+.thinking-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes thinking {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.6;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 </style> 

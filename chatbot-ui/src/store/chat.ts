@@ -35,6 +35,7 @@ export const useChatStore = defineStore('chat', () => {
   const selectedModel = ref<string>('')
   const isStreaming = ref<boolean>(false)
   const streamingContent = ref<string>('')
+  const showThinking = ref<boolean>(false)
 
   // 加载可用模型列表
   const loadAvailableModels = async () => {
@@ -92,6 +93,7 @@ export const useChatStore = defineStore('chat', () => {
       // 确保流式响应状态被重置
       isStreaming.value = false
       streamingContent.value = ''
+      showThinking.value = false
     } catch (error) {
       console.error('Failed to switch session:', error)
       throw error
@@ -109,6 +111,7 @@ export const useChatStore = defineStore('chat', () => {
       // 确保流式响应状态被重置
       isStreaming.value = false
       streamingContent.value = ''
+      showThinking.value = false
     } catch (error) {
       console.error('Failed to create new session:', error)
       throw error
@@ -145,6 +148,7 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     messages.value.push(userMessage)
+    showThinking.value = true
 
     try {
       const response = await chatApi.sendMessage({
@@ -160,6 +164,8 @@ export const useChatStore = defineStore('chat', () => {
     } catch (error) {
       console.error('Failed to send message:', error)
       throw error
+    } finally {
+      showThinking.value = false
     }
   }
 
@@ -175,13 +181,7 @@ export const useChatStore = defineStore('chat', () => {
       content
     }
     messages.value.push(userMessage)
-
-    // 添加一个空的助手消息用于流式更新
-    const assistantMessage: ChatMessage = {
-      role: 'assistant',
-      content: ''
-    }
-    messages.value.push(assistantMessage)
+    showThinking.value = true
 
     try {
       await chatApi.sendMessageStreaming({
@@ -194,16 +194,24 @@ export const useChatStore = defineStore('chat', () => {
         if (lastMessage && lastMessage.role === 'assistant') {
           // 将新消息追加到现有内容后面
           lastMessage.content += response.message
-          // 等待 DOM 更新完成
-          await nextTick()
-          if (onChunk) {
-            onChunk(response.message)
+        } else {
+          // 如果是第一条响应，创建新的助手消息
+          const assistantMessage: ChatMessage = {
+            role: 'assistant',
+            content: response.message
           }
+          messages.value.push(assistantMessage)
+          // 收到第一条响应时，隐藏思考动画
+          showThinking.value = false
+        }
+        // 等待 DOM 更新完成
+        await nextTick()
+        if (onChunk) {
+          onChunk(response.message)
         }
       })
     } catch (error) {
-      // 如果发送失败，移除最后一条消息
-      messages.value.pop()
+      showThinking.value = false
       throw error
     }
   }
@@ -217,6 +225,7 @@ export const useChatStore = defineStore('chat', () => {
     selectedModel.value = ''
     isStreaming.value = false
     streamingContent.value = ''
+    showThinking.value = false
   }
 
   return {
@@ -225,6 +234,7 @@ export const useChatStore = defineStore('chat', () => {
     messages,
     availableModels,
     selectedModel,
+    showThinking,
     loadAvailableModels,
     loadSessions,
     switchSession,
