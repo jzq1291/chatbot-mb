@@ -20,11 +20,13 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Scheduler;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -43,6 +45,7 @@ public class ChatServiceImpl implements ChatService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final RedisService redisService;
     private final KeywordExtractor keywordExtractor;
+    private final Scheduler elasticScheduler;
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -160,6 +163,7 @@ public class ChatServiceImpl implements ChatService {
     @Transactional
     public Flux<ChatResponse> processMessageReactive(ChatRequest request) {
         return Mono.fromCallable(() -> processMessageCommon(request))
+            .subscribeOn(elasticScheduler)  // Move blocking operation to elastic thread pool
             .flatMapMany(result -> {
                 StringBuilder fullResponse = new StringBuilder();
                 return chatClient.prompt()
@@ -175,7 +179,10 @@ public class ChatServiceImpl implements ChatService {
                             return null;
                         })
                         .doOnComplete(() -> {
-                            saveAssistantMessage(cleanAiResponse(fullResponse.toString()), result.sessionId(), result.currentUser());
+                            // Move blocking save operation to elastic thread pool
+                            Mono.fromRunnable(() -> 
+                                saveAssistantMessage(cleanAiResponse(fullResponse.toString()), result.sessionId(), result.currentUser())
+                            ).subscribeOn(elasticScheduler).subscribe();
                         })
                         .doOnError(error -> {
                             log.error("Error in streaming response: {}", error.getMessage());
@@ -235,37 +242,35 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private List<Message> buildMessageContext(String sessionId) {
-        // 获取最近的10条消息
-        List<ChatMessage> history = chatMessageMapper.findLast10BySessionIdAndUserIdOrderByCreatedAtDesc(sessionId, getCurrentUser().getId());
-        // 反转列表以保持时间顺序
-        Collections.reverse(history);
+        return Mono.fromCallable(() -> {
+            // 获取最近的10条消息
+            List<ChatMessage> history = chatMessageMapper.findLast10BySessionIdAndUserIdOrderByCreatedAtDesc(sessionId, getCurrentUser().getId());
+            // 反转列表以保持时间顺序
+            Collections.reverse(history);
 
-        // 构建对话上下文
-        List<Message> messages = new ArrayList<>();
-        
-        // 添加系统提示，包含知识库信息
+            // 构建对话上下文
+            List<Message> messages = new ArrayList<>();
+            
+            String systemPrompt = """
+                你是一个智能助手，名字叫强哥。请严格遵守以下规则：
+                1.**输出要求**：所有回答（包括流式输出）必须直接给出最终答案，完全省略思考过程、推理步骤或解释性文字。
+                2.**知识库优先级**：当用户提供本地知识库内容（通过UserMessage传递）时，必须优先结合知识库内容回答；若知识库无相关答案，再调用自身知识。
+                3.**角色一致性**：回答时需以"强哥"自称（例如："强哥为您解答：..."），保持简洁专业的语气。
+            """;
+            messages.add(new SystemMessage(systemPrompt));
+            messages.add(new SystemMessage(systemPrompt));
 
-//        String systemPrompt = "你是一个专业的客服助手，请根据以下知识库内容回答用户问题。只输出最终答案，不解释过程，流式输出时也省略思考过程\n\n";
-//        messages.add(new SystemMessage(systemPrompt));
-        String systemPrompt = """
-            你是一个智能助手，名字叫强哥。请严格遵守以下规则：
-            1.**输出要求**：所有回答（包括流式输出）必须直接给出最终答案，完全省略思考过程、推理步骤或解释性文字。
-            2.**知识库优先级**：当用户提供本地知识库内容（通过UserMessage传递）时，必须优先结合知识库内容回答；若知识库无相关答案，再调用自身知识。
-            3.**角色一致性**：回答时需以“强哥”自称（例如：“强哥为您解答：...”），保持简洁专业的语气。
-        """;
-        messages.add(new SystemMessage(systemPrompt));
-        messages.add(new SystemMessage(systemPrompt));
-
-        // 添加历史消息
-        for (ChatMessage msg : history) {
-            if ("user".equals(msg.getRole())) {
-                messages.add(new UserMessage(msg.getContent()));
-            } else {
-                messages.add(new AssistantMessage(msg.getContent()));
+            // 添加历史消息
+            for (ChatMessage msg : history) {
+                if ("user".equals(msg.getRole())) {
+                    messages.add(new UserMessage(msg.getContent()));
+                } else {
+                    messages.add(new AssistantMessage(msg.getContent()));
+                }
             }
-        }
 
-        return messages;
+            return messages;
+        }).subscribeOn(elasticScheduler).block();  // Execute blocking DB operation on elastic thread pool
     }
 
     private String cleanAiResponse(String response) {
