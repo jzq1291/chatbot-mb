@@ -8,6 +8,7 @@ import java.util.List;
 public interface KnowledgeService {
     PageResponse<KnowledgeBase> findAll(int page, int size);
     PageResponse<KnowledgeBase> search(String keyword, int page, int size);
+    List<KnowledgeBase> searchSimilar(String query, int topK);
     PageResponse<KnowledgeBase> findByCategory(String category, int page, int size);
     KnowledgeBase findById(Long id);
     KnowledgeBase addKnowledge(KnowledgeBase knowledge);

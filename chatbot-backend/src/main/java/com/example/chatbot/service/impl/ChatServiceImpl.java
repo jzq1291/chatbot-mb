@@ -10,6 +10,7 @@ import com.example.chatbot.mapper.ChatMessageMapper;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.mapper.UserMapper;
 import com.example.chatbot.service.ChatService;
+import com.example.chatbot.service.KnowledgeService;
 import com.example.chatbot.util.KeywordExtractor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,6 +45,7 @@ public class ChatServiceImpl implements ChatService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final RedisService redisService;
     private final KeywordExtractor keywordExtractor;
+    private final KnowledgeService knowledgeService;
     private final Scheduler elasticScheduler;
 
     private User getCurrentUser() {
@@ -54,8 +56,8 @@ public class ChatServiceImpl implements ChatService {
 
     // 提取公共的消息处理逻辑
     private ProcessMessageResult processMessageCommon(ChatRequest request) {
-        User currentUser = getCurrentUser();
         String sessionId = getOrCreateSessionId(request.getSessionId());
+        User currentUser = getCurrentUser();
         String modelId = request.getModelId() != null ? request.getModelId() : "qwen3";
         
         // 清理用户消息
@@ -101,29 +103,53 @@ public class ChatServiceImpl implements ChatService {
 
     // 搜索结果处理
     private List<KnowledgeBase> searchRelevantDocuments(String searchQuery, List<String> keywords) {
+        List<KnowledgeBase> combinedResults = new ArrayList<>();
+        
         // 1. 首先从Redis搜索相关文档
-        List<KnowledgeBase> relevantDocs = redisService.searchKnowledge(searchQuery);
-
-        // 2. 如果Redis中没有找到匹配的文档，则查询数据库
-        if (relevantDocs.isEmpty()) {
-            relevantDocs = searchKnowledgeFromDB(keywords);
+        List<KnowledgeBase> redisResults = redisService.searchKnowledge(searchQuery);
+        if (!redisResults.isEmpty()) {
+            combinedResults.addAll(redisResults);
             // 更新Redis中的热门知识
-            for (KnowledgeBase doc : relevantDocs) {
-                redisService.saveDocToRedis(doc);
-            }
-        } else {
-            for (KnowledgeBase doc : relevantDocs) {
+            for (KnowledgeBase doc : redisResults) {
                 redisService.incrementKnowledgeScore(String.valueOf(doc.getId()));
             }
         }
-        return relevantDocs;
+        
+        // 2. 如果Redis中没有找到匹配的文档，则进行向量搜索和关键词搜索
+        if (combinedResults.isEmpty()) {
+            try {
+                // 2.1 尝试向量搜索
+                List<KnowledgeBase> vectorResults = knowledgeService.searchSimilar(searchQuery, 3);
+                if (vectorResults != null && !vectorResults.isEmpty()) {
+                    combinedResults.addAll(vectorResults);
+                }
+            } catch (Exception e) {
+                log.warn("Vector search failed, falling back to keyword search only", e);
+            }
+            
+            // 2.2 使用关键词搜索
+            List<KnowledgeBase> keywordResults = searchKnowledgeFromDB(keywords);
+            // 合并结果，去重
+            for (KnowledgeBase kb : keywordResults) {
+                if (!combinedResults.contains(kb)) {
+                    combinedResults.add(kb);
+                }
+            }
+            
+            // 2.3 更新Redis缓存
+            for (KnowledgeBase doc : combinedResults) {
+                redisService.saveDocToRedis(doc);
+            }
+        }
+        
+        return combinedResults;
     }
 
     // 构建文档上下文
     private StringBuilder buildContextFromDocs(List<KnowledgeBase> relevantDocs) {
         StringBuilder contextBuilder = new StringBuilder();
         if (!relevantDocs.isEmpty()) {
-            contextBuilder.append("相关文档：\n");
+            contextBuilder.append("根据以下知识库内容回答：\n");
             for (KnowledgeBase doc : relevantDocs) {
                 contextBuilder.append("标题：").append(doc.getTitle()).append("\n");
                 contextBuilder.append("内容：").append(doc.getContent()).append("\n\n");

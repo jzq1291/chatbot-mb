@@ -6,6 +6,7 @@ import com.example.chatbot.dto.PageResponse;
 import com.example.chatbot.entity.KnowledgeBase;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.service.KnowledgeService;
+import com.example.chatbot.service.VectorSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -21,6 +22,8 @@ import java.util.List;
 public class KnowledgeServiceImpl implements KnowledgeService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final RabbitTemplate rabbitTemplate;
+    private final VectorSearchService vectorSearchService;
+    
     @Value("${spring.rabbitmq.queue.batch-size:10}")
     private int BATCH_SIZE;
 
@@ -48,6 +51,11 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     }
 
     @Override
+    public List<KnowledgeBase> searchSimilar(String query, int topK) {
+        return vectorSearchService.searchSimilar(query, topK);
+    }
+
+    @Override
     public PageResponse<KnowledgeBase> findByCategory(String category, int page, int size) {
         Page<KnowledgeBase> pageResult = knowledgeBaseMapper.findByCategory(new Page<>(page, size), category);
         return new PageResponse<>(
@@ -68,6 +76,8 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     public KnowledgeBase addKnowledge(KnowledgeBase knowledge) {
         log.debug("Adding new knowledge base entry: {}", knowledge.getTitle());
         knowledgeBaseMapper.insert(knowledge);
+        // 索引新文档
+        vectorSearchService.indexDocument(knowledge);
         return knowledge;
     }
 
@@ -80,6 +90,8 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         }
         knowledge.setId(id);
         knowledgeBaseMapper.updateById(knowledge);
+        // 更新向量索引
+        vectorSearchService.updateDocument(knowledge);
         return knowledge;
     }
 
@@ -90,6 +102,8 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         if (knowledgeBaseMapper.deleteById(id) == 0) {
             throw new RuntimeException("Knowledge base entry not found");
         }
+        // 删除向量索引
+        vectorSearchService.deleteDocument(id);
     }
 
     @Override
