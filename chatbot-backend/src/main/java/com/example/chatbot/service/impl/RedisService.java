@@ -3,9 +3,10 @@ package com.example.chatbot.service.impl;
 import com.example.chatbot.entity.KnowledgeBase;
 import com.example.chatbot.util.KeywordExtractor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.*;
 import org.springframework.stereotype.Service;
+import org.springframework.lang.NonNull;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,7 +33,7 @@ public class RedisService {
             // 如果达到最大数量，移除分数最低的条目
             Set<ZSetOperations.TypedTuple<Object>> lowestScoreItems = redisTemplate.opsForZSet()
                     .rangeWithScores(HOT_KNOWLEDGE_KEY, 0, 0);
-            if (!lowestScoreItems.isEmpty()) {
+            if (lowestScoreItems != null && !lowestScoreItems.isEmpty()) {
                 ZSetOperations.TypedTuple<Object> lowestItem = lowestScoreItems.iterator().next();
                 if (lowestItem != null && lowestItem.getValue() != null) {
                     String lowestId = lowestItem.getValue().toString();
@@ -144,7 +145,7 @@ public class RedisService {
         Set<ZSetOperations.TypedTuple<Object>> allItems = redisTemplate.opsForZSet()
                 .rangeWithScores(HOT_KNOWLEDGE_KEY, 0, -1);
         
-        if (allItems == null) {
+        if (allItems == null || allItems.isEmpty()) {
             return;
         }
 
@@ -156,12 +157,26 @@ public class RedisService {
                 })
                 .forEach(tuple -> {
                     String id = Objects.requireNonNull(tuple.getValue()).toString();
-                    // 删除知识数据
-                    redisTemplate.delete(KNOWLEDGE_DATA_KEY + id);
-                    // 从热门知识集合中删除
-                    redisTemplate.opsForZSet().remove(HOT_KNOWLEDGE_KEY, id);
-                    // 删除相关的关键词索引
-                    deleteKeywordIndex(id);
+                    // 使用事务确保原子性
+                    redisTemplate.execute(new SessionCallback<List<Object>>() {
+                        @SuppressWarnings("unchecked")
+                        @Override
+                        public <K, V> List<Object> execute(@NonNull RedisOperations<K, V> operations) throws DataAccessException {
+                            operations.multi();
+                            try {
+                                // 删除知识数据
+                                operations.delete((K)(KNOWLEDGE_DATA_KEY + id));
+                                // 从热门知识集合中删除
+                                operations.opsForZSet().remove((K)HOT_KNOWLEDGE_KEY, id);
+                                // 删除相关的关键词索引
+                                deleteKeywordIndex(id);
+                                return operations.exec();
+                            } catch (Exception e) {
+                                operations.discard();
+                                throw e;
+                            }
+                        }
+                    });
                 });
     }
 

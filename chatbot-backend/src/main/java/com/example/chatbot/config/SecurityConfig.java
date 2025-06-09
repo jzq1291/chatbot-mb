@@ -54,7 +54,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/ai/auth/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
-                // .requestMatchers("/ai/chat/send/reactive").permitAll()
+                .requestMatchers("/ai/chat/send/reactive").permitAll()
                 .requestMatchers("/ai/chat/**").hasAnyRole("ADMIN", "USER", "KNOWLEDGEMANAGER")
                 .requestMatchers("/ai/knowledge/**").hasAnyRole("ADMIN", "KNOWLEDGEMANAGER")
                 .requestMatchers("/ai/users/**").hasRole("ADMIN")
