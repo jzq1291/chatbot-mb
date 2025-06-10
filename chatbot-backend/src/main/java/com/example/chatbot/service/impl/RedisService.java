@@ -78,17 +78,16 @@ public class RedisService {
             java.time.Duration.ofDays(DEFAULT_EXPIRATION_DAYS));
     }
 
-    public List<KnowledgeBase> searchKnowledge(String query) {
-        if (query == null || query.trim().isEmpty()) {
+    public List<KnowledgeBase> searchKnowledge(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
             return Collections.emptyList();
         }
 
-        String[] searchTerms = query.toLowerCase().split("\\s+");
         Set<String> matchedDocIds = new HashSet<>();
         
         // 1. 首先检查关键词索引
-        for (String term : searchTerms) {
-            String keywordKey = KEYWORD_INDEX_KEY + term;
+        for (String keyword : keywords) {
+            String keywordKey = KEYWORD_INDEX_KEY + keyword.toLowerCase();
             Set<Object> docIds = redisTemplate.opsForSet().members(keywordKey);
             if (docIds != null) {
                 matchedDocIds.addAll(docIds.stream()
@@ -106,10 +105,10 @@ public class RedisService {
         }
 
         // 3. 如果没有找到匹配的文档，返回热门知识，并传入搜索词
-        return getHotKnowledge(searchTerms);
+        return getHotKnowledge(keywords);
     }
 
-    public List<KnowledgeBase> getHotKnowledge(String[] searchTerms) {
+    public List<KnowledgeBase> getHotKnowledge(List<String> searchTerms) {
         Set<ZSetOperations.TypedTuple<Object>> hotItems = redisTemplate.opsForZSet()
                 .reverseRangeWithScores(HOT_KNOWLEDGE_KEY, 0, -1);
         
@@ -124,7 +123,7 @@ public class RedisService {
                 })
                 .filter(Objects::nonNull)
                 .filter(knowledge -> {
-                    if (searchTerms == null || searchTerms.length == 0) {
+                    if (searchTerms == null || searchTerms.isEmpty()) {
                         return true;
                     }
                     String title = knowledge.getTitle().toLowerCase();
@@ -132,10 +131,10 @@ public class RedisService {
                     String category = knowledge.getCategory().toLowerCase();
                     
                     // 检查是否包含任意一个搜索词
-                    return Arrays.stream(searchTerms)
-                            .anyMatch(term -> title.contains(term) || 
-                                           content.contains(term) || 
-                                           category.contains(term));
+                    return searchTerms.stream()
+                            .anyMatch(term -> title.contains(term.toLowerCase()) || 
+                                           content.contains(term.toLowerCase()) || 
+                                           category.contains(term.toLowerCase()));
                 })
                 .collect(Collectors.toList());
     }

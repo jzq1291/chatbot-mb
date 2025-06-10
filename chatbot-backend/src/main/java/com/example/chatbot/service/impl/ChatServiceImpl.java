@@ -47,6 +47,7 @@ public class ChatServiceImpl implements ChatService {
     private final KeywordExtractor keywordExtractor;
     private final KnowledgeService knowledgeService;
     private final Scheduler elasticScheduler;
+    private static final int MIN_REQUIRED_RESULTS = 3;
 
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -65,8 +66,7 @@ public class ChatServiceImpl implements ChatService {
 
         // 提取关键词并搜索相关文档
         List<String> keywords = keywordExtractor.extractKeywords(cleanedMessage, 3);
-        String searchQuery = String.join(" ", keywords);
-        List<KnowledgeBase> relevantDocs = searchRelevantDocuments(searchQuery, keywords);
+        List<KnowledgeBase> relevantDocs = searchRelevantDocuments(cleanedMessage, keywords);
 
         // 构建上下文
         StringBuilder contextBuilder = buildContextFromDocs(relevantDocs);
@@ -102,11 +102,11 @@ public class ChatServiceImpl implements ChatService {
     }
 
     // 搜索结果处理
-    private List<KnowledgeBase> searchRelevantDocuments(String searchQuery, List<String> keywords) {
+    private List<KnowledgeBase> searchRelevantDocuments(String cleanedMessage, List<String> keywords) {
         List<KnowledgeBase> combinedResults = new ArrayList<>();
         
         // 1. 首先从Redis搜索相关文档
-        List<KnowledgeBase> redisResults = redisService.searchKnowledge(searchQuery);
+        List<KnowledgeBase> redisResults = redisService.searchKnowledge(keywords);
         if (!redisResults.isEmpty()) {
             combinedResults.addAll(redisResults);
             // 更新Redis中的热门知识
@@ -115,19 +115,26 @@ public class ChatServiceImpl implements ChatService {
             }
         }
         
-        // 2. 如果Redis中没有找到匹配的文档，则进行向量搜索和关键词搜索
-        if (combinedResults.isEmpty()) {
+        // 2. 如果Redis结果数量小于要求的最小数量，进行向量搜索
+        if (combinedResults.size() < MIN_REQUIRED_RESULTS) {
             try {
-                // 2.1 尝试向量搜索
-                List<KnowledgeBase> vectorResults = knowledgeService.searchSimilar(searchQuery, 3);
+                // 2.1 使用完整的cleanedMessage进行向量搜索
+                List<KnowledgeBase> vectorResults = knowledgeService.searchSimilar(cleanedMessage, MIN_REQUIRED_RESULTS);
                 if (vectorResults != null && !vectorResults.isEmpty()) {
-                    combinedResults.addAll(vectorResults);
+                    // 合并结果，去重
+                    for (KnowledgeBase kb : vectorResults) {
+                        if (!combinedResults.contains(kb)) {
+                            combinedResults.add(kb);
+                        }
+                    }
                 }
             } catch (Exception e) {
                 log.warn("Vector search failed, falling back to keyword search only", e);
             }
-            
-            // 2.2 使用关键词搜索
+        }
+        
+        // 3. 如果结果数量仍然小于要求的最小数量，进行关键词搜索
+        if (combinedResults.size() < MIN_REQUIRED_RESULTS) {
             List<KnowledgeBase> keywordResults = searchKnowledgeFromDB(keywords);
             // 合并结果，去重
             for (KnowledgeBase kb : keywordResults) {
@@ -135,11 +142,11 @@ public class ChatServiceImpl implements ChatService {
                     combinedResults.add(kb);
                 }
             }
-            
-            // 2.3 更新Redis缓存
-            for (KnowledgeBase doc : combinedResults) {
-                redisService.saveDocToRedis(doc);
-            }
+        }
+        
+        // 4. 更新Redis缓存
+        for (KnowledgeBase doc : combinedResults) {
+            redisService.saveDocToRedis(doc);
         }
         
         return combinedResults;

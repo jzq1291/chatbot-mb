@@ -1,0 +1,6 @@
+安装python
+sudo apt install python3
+安装依赖
+pip install fastapi pydantic transformers torch uvicorn
+运行脚本
+uvicorn embedding_server:app --host 0.0.0.0 --port 8888 --reload
