@@ -107,11 +107,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
-        <!-- milvus Java SDK -->
+        <!-- Milvus Spring Boot Starter -->
         <dependency>
-            <groupId>io.milvus</groupId>
-            <artifactId>milvus-sdk-java</artifactId>
-            <version>2.5.10</version>
+            <groupId>com.example</groupId>
+            <artifactId>milvus-spring-boot-starter</artifactId>
+            <version>1.0.0</version>
         </dependency>
     </dependencies>
     <dependencyManagement>
