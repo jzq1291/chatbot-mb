@@ -2,6 +2,7 @@ package com.example.chatbot.service.impl;
 
 import com.example.chatbot.entity.KnowledgeBase;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
+import com.example.chatbot.service.RedisService;
 import com.example.chatbot.service.VectorSearchService;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.SearchResults;
@@ -32,7 +33,9 @@ import java.util.Map;
 public class VectorSearchServiceImpl implements VectorSearchService {
     private final MilvusServiceClient milvusClient;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
+    private final RedisService redisService;
 
+    private static final String KNOWLEDGE_DATA_KEY = "knowledge_data:";
     private static final String COLLECTION_NAME = "knowledge_base";
     private static final String VECTOR_FIELD = "vector";
     private static final String ID_FIELD = "id";
@@ -148,8 +151,32 @@ public class VectorSearchServiceImpl implements VectorSearchService {
                 ids.add(idScore.getLongID());
             }
             if (!ids.isEmpty()) {
-                // 根据 ID 查询数据库，返回文档
-                return knowledgeBaseMapper.findByIds(ids);
+                // 先从Redis缓存中查找
+                List<KnowledgeBase> results = new ArrayList<>();
+                List<Long> missingIds = new ArrayList<>();
+                
+                for (Long id : ids) {
+                    KnowledgeBase cachedDoc = (KnowledgeBase) redisService.getRedisTemplate()
+                            .opsForValue().get(KNOWLEDGE_DATA_KEY + id);
+                    if (cachedDoc != null) {
+                        results.add(cachedDoc);
+                    } else {
+                        missingIds.add(id);
+                    }
+                }
+                
+                // 如果Redis中没有找到所有文档，则从数据库中查询缺失的文档
+                if (!missingIds.isEmpty()) {
+                    List<KnowledgeBase> dbResults = knowledgeBaseMapper.findByIds(missingIds);
+                    results.addAll(dbResults);
+                    
+                    // 将新查询到的文档存入Redis
+                    for (KnowledgeBase doc : dbResults) {
+                        redisService.saveDocToRedis(doc);
+                    }
+                }
+                
+                return results;
             }
             return new ArrayList<>();
         } catch (Exception e) {

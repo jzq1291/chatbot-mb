@@ -6,6 +6,7 @@ import com.example.chatbot.dto.PageResponse;
 import com.example.chatbot.entity.KnowledgeBase;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.service.KnowledgeService;
+import com.example.chatbot.service.RedisService;
 import com.example.chatbot.service.VectorSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -23,6 +25,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final RabbitTemplate rabbitTemplate;
     private final VectorSearchService vectorSearchService;
+    private final RedisService redisService;
     
     @Value("${spring.rabbitmq.queue.batch-size:10}")
     private int BATCH_SIZE;
@@ -92,6 +95,8 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         knowledgeBaseMapper.updateById(knowledge);
         // 更新向量索引
         vectorSearchService.updateDocument(knowledge);
+        // 更新Redis缓存
+        redisService.saveDocToRedis(knowledge);
         return knowledge;
     }
 
@@ -104,6 +109,8 @@ public class KnowledgeServiceImpl implements KnowledgeService {
         }
         // 删除向量索引
         vectorSearchService.deleteDocument(id);
+        // 删除Redis缓存
+        redisService.deleteKnowledge(id);
     }
 
     @Override

@@ -7,6 +7,10 @@
     <packaging>jar</packaging>
     <name>Milvus Spring Boot Starter</name>
     <description>Spring Boot Starter for Milvus Client</description>
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
