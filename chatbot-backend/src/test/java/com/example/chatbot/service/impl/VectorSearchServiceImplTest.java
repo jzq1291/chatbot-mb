@@ -7,8 +7,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
@@ -41,7 +39,7 @@ public class VectorSearchServiceImplTest {
         // 模拟 HTTP 响应
         String mockResponse = "{\"embedding\": [0.1, 0.2, 0.3]}";
         ResponseEntity<String> responseEntity = ResponseEntity.ok(mockResponse);
-        when(restTemplate.postForEntity(eq("http://localhost:8001/embed"), any(HttpEntity.class), eq(String.class)))
+        when(restTemplate.postForEntity(eq("http://localhost:8888/embed"), any(HttpEntity.class), eq(String.class)))
                 .thenReturn(responseEntity);
 
         // 模拟 ObjectMapper 解析结果

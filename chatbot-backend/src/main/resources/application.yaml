@@ -155,3 +155,7 @@ keyword:
 milvus:
   host: localhost
   port: 19530
+
+# 文本向量化服务地址
+embedding:
+  url: http://localhost:8888/embed

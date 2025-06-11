@@ -18,6 +18,7 @@ import io.milvus.param.index.CreateIndexParam;
 import io.milvus.response.SearchResultsWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
@@ -41,8 +42,8 @@ public class VectorSearchServiceImpl implements VectorSearchService {
     private static final String ID_FIELD = "id";
     private static final int VECTOR_DIM = 384; // MiniLM-L6-v2 dimension
 
-    // 嵌入服务地址
-    private static final String EMBEDDING_URL = "http://localhost:8888/embed";
+    @Value("${embedding.url}")
+    private String embeddingUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -106,13 +107,13 @@ public class VectorSearchServiceImpl implements VectorSearchService {
     /**
      * 通过 Python 服务生成文本向量
      */
-    private List<Float> generateEmbedding(String text) throws Exception {
+    List<Float> generateEmbedding(String text) throws Exception {
         Map<String, String> request = Map.of("text", text);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(request, headers);
 
-        ResponseEntity<String> response = restTemplate.postForEntity(EMBEDDING_URL, entity, String.class);
+        ResponseEntity<String> response = restTemplate.postForEntity(embeddingUrl, entity, String.class);
 
         Map<String, Object> result = objectMapper.readValue(response.getBody(), Map.class);
         List<Double> embeddingDouble = (List<Double>) result.get("embedding");
