@@ -23,10 +23,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.chatbot.service.RedisDistributedLock;
+import com.example.chatbot.exception.BusinessException;
+import com.example.chatbot.exception.ErrorCode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -35,6 +39,7 @@ public class VectorSearchServiceImpl implements VectorSearchService {
     private final MilvusServiceClient milvusClient;
     private final KnowledgeBaseMapper knowledgeBaseMapper;
     private final RedisService redisService;
+    private final RedisDistributedLock distributedLock;
 
     private static final String KNOWLEDGE_DATA_KEY = "knowledge_data:";
     private static final String COLLECTION_NAME = "knowledge_base";
@@ -191,23 +196,35 @@ public class VectorSearchServiceImpl implements VectorSearchService {
      */
     @Override
     public void indexDocument(KnowledgeBase knowledge) {
+        String lockKey = "vector:index:" + knowledge.getId();
+        String lockValue = distributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
         try {
-            List<Float> vector = generateEmbedding(knowledge.getTitle() + " " + knowledge.getContent());
+            if (lockValue != null) {
+                try {
+                    List<Float> vector = generateEmbedding(knowledge.getTitle() + " " + knowledge.getContent());
 
-            List<InsertParam.Field> fields = new ArrayList<>();
-            fields.add(new InsertParam.Field(ID_FIELD, List.of(knowledge.getId())));
-            fields.add(new InsertParam.Field(VECTOR_FIELD, List.of(vector)));
+                    List<InsertParam.Field> fields = new ArrayList<>();
+                    fields.add(new InsertParam.Field(ID_FIELD, List.of(knowledge.getId())));
+                    fields.add(new InsertParam.Field(VECTOR_FIELD, List.of(vector)));
 
-            InsertParam insertParam = InsertParam.newBuilder()
-                    .withCollectionName(COLLECTION_NAME)
-                    .withFields(fields)
-                    .build();
+                    InsertParam insertParam = InsertParam.newBuilder()
+                            .withCollectionName(COLLECTION_NAME)
+                            .withFields(fields)
+                            .build();
 
-            milvusClient.insert(insertParam);
-            log.debug("Successfully indexed document: {}", knowledge.getTitle());
-        } catch (Exception e) {
-            log.error("Failed to index document", e);
-            throw new RuntimeException("Failed to index document", e);
+                    milvusClient.insert(insertParam);
+                    log.debug("Successfully indexed document: {}", knowledge.getTitle());
+                } catch (Exception e) {
+                    log.error("Failed to index document", e);
+                    throw new RuntimeException("Failed to index document", e);
+                }
+            } else {
+                throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+            }
+        } finally {
+            if (lockValue != null) {
+                distributedLock.unlock(lockKey, lockValue);
+            }
         }
     }
 
@@ -246,15 +263,27 @@ public class VectorSearchServiceImpl implements VectorSearchService {
      */
     @Override
     public void deleteDocument(Long id) {
+        String lockKey = "vector:delete:" + id;
+        String lockValue = distributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
         try {
-            milvusClient.delete(io.milvus.param.dml.DeleteParam.newBuilder()
-                    .withCollectionName(COLLECTION_NAME)
-                    .withExpr(ID_FIELD + " == " + id)
-                    .build());
-            log.debug("Successfully deleted document index: {}", id);
-        } catch (Exception e) {
-            log.error("Failed to delete document index", e);
-            throw new RuntimeException("Failed to delete document index", e);
+            if (lockValue != null) {
+                try {
+                    milvusClient.delete(io.milvus.param.dml.DeleteParam.newBuilder()
+                            .withCollectionName(COLLECTION_NAME)
+                            .withExpr(ID_FIELD + " == " + id)
+                            .build());
+                    log.debug("Successfully deleted document index: {}", id);
+                } catch (Exception e) {
+                    log.error("Failed to delete document index", e);
+                    throw new RuntimeException("Failed to delete document index", e);
+                }
+            } else {
+                throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+            }
+        } finally {
+            if (lockValue != null) {
+                distributedLock.unlock(lockKey, lockValue);
+            }
         }
     }
 

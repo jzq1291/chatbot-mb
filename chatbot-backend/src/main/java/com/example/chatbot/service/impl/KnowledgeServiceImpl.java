@@ -6,6 +6,7 @@ import com.example.chatbot.dto.PageResponse;
 import com.example.chatbot.entity.KnowledgeBase;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.service.KnowledgeService;
+import com.example.chatbot.service.RedisDistributedLock;
 import com.example.chatbot.service.RedisService;
 import com.example.chatbot.service.VectorSearchService;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
@@ -26,6 +27,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     private final RabbitTemplate rabbitTemplate;
     private final VectorSearchService vectorSearchService;
     private final RedisService redisService;
+    private final RedisDistributedLock distributedLock;
     
     @Value("${spring.rabbitmq.queue.batch-size:10}")
     private int BATCH_SIZE;
@@ -77,40 +79,76 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     @Override
     @Transactional
     public KnowledgeBase addKnowledge(KnowledgeBase knowledge) {
-        log.debug("Adding new knowledge base entry: {}", knowledge.getTitle());
-        knowledgeBaseMapper.insert(knowledge);
-        // 索引新文档
-        vectorSearchService.indexDocument(knowledge);
-        return knowledge;
+        String lockKey = "knowledge:add:" + knowledge.getTitle();
+        String lockValue = distributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+        try {
+            if (lockValue != null) {
+                log.debug("Adding new knowledge base entry: {}", knowledge.getTitle());
+                knowledgeBaseMapper.insert(knowledge);
+                // 索引新文档
+                vectorSearchService.indexDocument(knowledge);
+                // 保存到Redis缓存
+                redisService.saveDocToRedis(knowledge);
+                return knowledge;
+            }
+            throw new RuntimeException("Operation failed");
+        } finally {
+            if (lockValue != null) {
+                distributedLock.unlock(lockKey, lockValue);
+            }
+        }
     }
 
     @Override
     @Transactional
     public KnowledgeBase updateKnowledge(Long id, KnowledgeBase knowledge) {
-        KnowledgeBase existingKnowledge = knowledgeBaseMapper.selectById(id);
-        if (existingKnowledge == null) {
-            throw new RuntimeException("Knowledge base entry not found");
+        String lockKey = "knowledge:update:" + id;
+        String lockValue = distributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+        try {
+            if (lockValue != null) {
+                KnowledgeBase existingKnowledge = knowledgeBaseMapper.selectById(id);
+                if (existingKnowledge == null) {
+                    throw new RuntimeException("Knowledge base entry not found");
+                }
+                knowledge.setId(id);
+                knowledgeBaseMapper.updateById(knowledge);
+                // 更新向量索引
+                vectorSearchService.updateDocument(knowledge);
+                // 更新Redis缓存
+                redisService.saveDocToRedis(knowledge);
+                return knowledge;
+            }
+            throw new RuntimeException("Operation failed");
+        } finally {
+            if (lockValue != null) {
+                distributedLock.unlock(lockKey, lockValue);
+            }
         }
-        knowledge.setId(id);
-        knowledgeBaseMapper.updateById(knowledge);
-        // 更新向量索引
-        vectorSearchService.updateDocument(knowledge);
-        // 更新Redis缓存
-        redisService.saveDocToRedis(knowledge);
-        return knowledge;
     }
 
     @Override
     @Transactional
     public void deleteKnowledge(Long id) {
-        log.debug("Deleting knowledge base entry with id: {}", id);
-        if (knowledgeBaseMapper.deleteById(id) == 0) {
-            throw new RuntimeException("Knowledge base entry not found");
+        String lockKey = "knowledge:delete:" + id;
+        String lockValue = distributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+        try {
+            if (lockValue != null) {
+                log.debug("Deleting knowledge base entry with id: {}", id);
+                if (knowledgeBaseMapper.deleteById(id) == 0) {
+                    throw new RuntimeException("Knowledge base entry not found");
+                }
+                // 删除向量索引
+                vectorSearchService.deleteDocument(id);
+                // 从Redis缓存中删除
+                redisService.deleteKnowledge(id);
+            } else {
+                throw new RuntimeException("Operation failed");
+            }
+        } finally {
+            if (lockValue != null) {
+                distributedLock.unlock(lockKey, lockValue);
+            }
         }
-        // 删除向量索引
-        vectorSearchService.deleteDocument(id);
-        // 删除Redis缓存
-        redisService.deleteKnowledge(id);
     }
 
     @Override

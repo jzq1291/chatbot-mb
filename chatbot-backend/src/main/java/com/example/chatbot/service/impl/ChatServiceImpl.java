@@ -11,6 +11,7 @@ import com.example.chatbot.mapper.KnowledgeBaseMapper;
 import com.example.chatbot.mapper.UserMapper;
 import com.example.chatbot.service.ChatService;
 import com.example.chatbot.service.KnowledgeService;
+import com.example.chatbot.service.RedisDistributedLock;
 import com.example.chatbot.service.RedisService;
 import com.example.chatbot.util.KeywordExtractor;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +50,7 @@ public class ChatServiceImpl implements ChatService {
     private final KeywordExtractor keywordExtractor;
     private final KnowledgeService knowledgeService;
     private final Scheduler elasticScheduler;
+    private final RedisDistributedLock distributedLock;
     private static final int MIN_REQUIRED_RESULTS = 3;
 
     private User getCurrentUser() {
@@ -110,9 +113,19 @@ public class ChatServiceImpl implements ChatService {
         List<KnowledgeBase> redisResults = redisService.searchKnowledge(keywords);
         if (!redisResults.isEmpty()) {
             combinedResults.addAll(redisResults);
-            // 更新Redis中的热门知识
+            // 更新Redis中的热门知识，使用分布式锁保护
             for (KnowledgeBase doc : redisResults) {
-                redisService.incrementKnowledgeScore(String.valueOf(doc.getId()));
+                String lockKey = "knowledge:hot:update:" + doc.getId();
+                String lockValue = distributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS);
+                try {
+                    if (lockValue != null) {
+                        redisService.incrementKnowledgeScore(String.valueOf(doc.getId()));
+                    }
+                } finally {
+                    if (lockValue != null) {
+                        distributedLock.unlock(lockKey, lockValue);
+                    }
+                }
             }
         }
         
@@ -145,9 +158,19 @@ public class ChatServiceImpl implements ChatService {
             }
         }
         
-        // 4. 更新Redis缓存
+        // 4. 更新Redis缓存，使用分布式锁保护
         for (KnowledgeBase doc : combinedResults) {
-            redisService.saveDocToRedis(doc);
+            String lockKey = "knowledge:save:" + doc.getId();
+            String lockValue = distributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS);
+            try {
+                if (lockValue != null) {
+                    redisService.saveDocToRedis(doc);
+                }
+            } finally {
+                if (lockValue != null) {
+                    distributedLock.unlock(lockKey, lockValue);
+                }
+            }
         }
         
         return combinedResults;
@@ -344,7 +367,17 @@ public class ChatServiceImpl implements ChatService {
     @Transactional
     public void deleteSession(String sessionId) {
         User currentUser = getCurrentUser();
-        chatMessageMapper.deleteBySessionIdAndUserId(sessionId, currentUser.getId());
+        String lockKey = "chat:delete:" + sessionId;
+        String lockValue = distributedLock.tryLock(lockKey, 10, TimeUnit.SECONDS);
+        try {
+            if (lockValue != null) {
+                chatMessageMapper.deleteBySessionIdAndUserId(sessionId, currentUser.getId());
+            }
+        } finally {
+            if (lockValue != null) {
+                distributedLock.unlock(lockKey, lockValue);
+            }
+        }
     }
 
     private String cleanMessage(String message) {
