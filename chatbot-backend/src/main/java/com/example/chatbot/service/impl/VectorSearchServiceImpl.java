@@ -170,16 +170,11 @@ public class VectorSearchServiceImpl implements VectorSearchService {
                         missingIds.add(id);
                     }
                 }
-                
+
                 // 如果Redis中没有找到所有文档，则从数据库中查询缺失的文档
                 if (!missingIds.isEmpty()) {
                     List<KnowledgeBase> dbResults = knowledgeBaseMapper.findByIds(missingIds);
                     results.addAll(dbResults);
-                    
-                    // 将新查询到的文档存入Redis
-                    for (KnowledgeBase doc : dbResults) {
-                        redisService.saveDocToRedis(doc);
-                    }
                 }
                 
                 return results;

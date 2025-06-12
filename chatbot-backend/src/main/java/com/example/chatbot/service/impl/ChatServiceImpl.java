@@ -113,20 +113,6 @@ public class ChatServiceImpl implements ChatService {
         List<KnowledgeBase> redisResults = redisService.searchKnowledge(keywords);
         if (!redisResults.isEmpty()) {
             combinedResults.addAll(redisResults);
-            // 更新Redis中的热门知识，使用分布式锁保护
-            for (KnowledgeBase doc : redisResults) {
-                String lockKey = "knowledge:hot:update:" + doc.getId();
-                String lockValue = distributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS);
-                try {
-                    if (lockValue != null) {
-                        redisService.incrementKnowledgeScore(String.valueOf(doc.getId()));
-                    }
-                } finally {
-                    if (lockValue != null) {
-                        distributedLock.unlock(lockKey, lockValue);
-                    }
-                }
-            }
         }
         
         // 2. 如果Redis结果数量小于要求的最小数量，进行向量搜索
@@ -164,6 +150,7 @@ public class ChatServiceImpl implements ChatService {
             String lockValue = distributedLock.tryLock(lockKey, 5, TimeUnit.SECONDS);
             try {
                 if (lockValue != null) {
+                    // 统一使用saveDocToRedis，它会处理新文档保存和已有文档的更新
                     redisService.saveDocToRedis(doc);
                 }
             } finally {

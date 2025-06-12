@@ -28,6 +28,7 @@ public class KnowledgeServiceImpl implements KnowledgeService {
     private final VectorSearchService vectorSearchService;
     private final RedisService redisService;
     private final RedisDistributedLock distributedLock;
+    private static final String KNOWLEDGE_DATA_KEY = "knowledge_data:";
     
     @Value("${spring.rabbitmq.queue.batch-size:10}")
     private int BATCH_SIZE;
@@ -87,8 +88,6 @@ public class KnowledgeServiceImpl implements KnowledgeService {
                 knowledgeBaseMapper.insert(knowledge);
                 // 索引新文档
                 vectorSearchService.indexDocument(knowledge);
-                // 保存到Redis缓存
-                redisService.saveDocToRedis(knowledge);
                 return knowledge;
             }
             throw new RuntimeException("Operation failed");
@@ -115,7 +114,10 @@ public class KnowledgeServiceImpl implements KnowledgeService {
                 // 更新向量索引
                 vectorSearchService.updateDocument(knowledge);
                 // 更新Redis缓存
-                redisService.saveDocToRedis(knowledge);
+                boolean inRedis = redisService.getRedisTemplate().hasKey(KNOWLEDGE_DATA_KEY + knowledge.getId());
+                if(inRedis){
+                    redisService.saveDocToRedis(knowledge);
+                }
                 return knowledge;
             }
             throw new RuntimeException("Operation failed");

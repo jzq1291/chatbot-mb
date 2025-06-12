@@ -33,19 +33,22 @@ public class RedisServiceImpl implements RedisService {
     @Override
     public void saveDocToRedis(KnowledgeBase knowledge) {
         String docId = knowledge.getId().toString();
+        boolean isInRedis = redisTemplate.hasKey(HOT_KNOWLEDGE_KEY) && redisTemplate.opsForZSet().score(HOT_KNOWLEDGE_KEY, docId) !=null;
         
-        // 1. 检查并维护热知识集合大小
-        Long currentSize = redisTemplate.opsForZSet().size(HOT_KNOWLEDGE_KEY);
-        if (currentSize != null && currentSize >= MAX_HOT_KNOWLEDGE_NUMBER) {
-            // 如果达到最大数量，移除分数最低的条目
-            Set<ZSetOperations.TypedTuple<Object>> lowestScoreItems = redisTemplate.opsForZSet()
-                    .rangeWithScores(HOT_KNOWLEDGE_KEY, 0, 0);
-            if (lowestScoreItems != null && !lowestScoreItems.isEmpty()) {
-                ZSetOperations.TypedTuple<Object> lowestItem = lowestScoreItems.iterator().next();
-                if (lowestItem != null && lowestItem.getValue() != null) {
-                    String lowestId = lowestItem.getValue().toString();
-                    // 只从热知识集合中移除分数最低的条目
-                    redisTemplate.opsForZSet().remove(HOT_KNOWLEDGE_KEY, lowestId);
+        // 1. 检查并维护热知识集合大小 - 仅对新文档执行
+        if (!isInRedis) {
+            Long currentSize = redisTemplate.opsForZSet().size(HOT_KNOWLEDGE_KEY);
+            if (currentSize != null && currentSize >= MAX_HOT_KNOWLEDGE_NUMBER) {
+                // 如果达到最大数量，移除分数最低的条目
+                Set<ZSetOperations.TypedTuple<Object>> lowestScoreItems = redisTemplate.opsForZSet()
+                        .rangeWithScores(HOT_KNOWLEDGE_KEY, 0, 0);
+                if (lowestScoreItems != null && !lowestScoreItems.isEmpty()) {
+                    ZSetOperations.TypedTuple<Object> lowestItem = lowestScoreItems.iterator().next();
+                    if (lowestItem != null && lowestItem.getValue() != null) {
+                        String lowestId = lowestItem.getValue().toString();
+                        // 只从热知识集合中移除分数最低的条目
+                        redisTemplate.opsForZSet().remove(HOT_KNOWLEDGE_KEY, lowestId);
+                    }
                 }
             }
         }
@@ -54,11 +57,33 @@ public class RedisServiceImpl implements RedisService {
         redisTemplate.opsForZSet().incrementScore(HOT_KNOWLEDGE_KEY, docId, 1);
         
         // 3. 存储完整知识数据，设置过期时间
-        redisTemplate.opsForValue().set(KNOWLEDGE_DATA_KEY + docId, knowledge, 
-            java.time.Duration.ofDays(DEFAULT_EXPIRATION_DAYS));
+        String knowledgeKey = KNOWLEDGE_DATA_KEY + docId;
+        KnowledgeBase existingKnowledge = (KnowledgeBase) redisTemplate.opsForValue().get(knowledgeKey);
         
-        // 4. 更新关键词索引
-        updateKeywordIndex(knowledge);
+        if (isContentChanged(existingKnowledge, knowledge)) {
+            // 存储新的或更新的知识数据
+            redisTemplate.opsForValue().set(knowledgeKey, knowledge, 
+                java.time.Duration.ofDays(DEFAULT_EXPIRATION_DAYS));
+            
+            // 4. 仅当知识内容发生变化时更新关键词索引
+            updateKeywordIndex(knowledge);
+        } else {
+            // 仅重置TTL
+            redisTemplate.expire(knowledgeKey, java.time.Duration.ofDays(DEFAULT_EXPIRATION_DAYS));
+        }
+    }
+
+    /**
+     * 检查知识内容是否发生变化
+     * @param existingKnowledge 已存在的知识
+     * @param newKnowledge 新的知识
+     * @return 如果内容发生变化返回true，否则返回false
+     */
+    private boolean isContentChanged(KnowledgeBase existingKnowledge, KnowledgeBase newKnowledge) {
+        return existingKnowledge == null || 
+            !Objects.equals(existingKnowledge.getId(), newKnowledge.getId()) ||
+            !Objects.equals(existingKnowledge.getTitle(), newKnowledge.getTitle()) ||
+            !Objects.equals(existingKnowledge.getContent(), newKnowledge.getContent());
     }
 
     private void updateKeywordIndex(KnowledgeBase knowledge) {
