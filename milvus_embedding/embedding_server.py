@@ -6,7 +6,12 @@ import torch
 app = FastAPI()
 
 # 加载 HuggingFace 模型
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+#VECTOR_DIM 384
+# MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+#VECTOR_DIM 1024
+ MODEL_NAME = "BAAI/bge-m3"
+#VECTOR_DIM 1024
+#MODEL_NAME = "Qwen/Qwen3-Embedding-0.6B-GGUF"
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 model = AutoModel.from_pretrained(MODEL_NAME)
 

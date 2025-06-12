@@ -115,7 +115,7 @@ chatbot:
         top-p: 0.95
         top-k: 5
       deepseekR1:  # DeepSeek模型配置
-        model: deepseek-r1:7b
+        model: deepseek-r1:14b
         temperature: 0.7
         top-p: 0.95
         top-k: 50
@@ -151,11 +151,49 @@ keyword:
     stop-words: [的, 了, 和, 是, 在, 我, 有, 这, 个, 们, 中, 为, 以, 及, 与, 或]  # 停用词列表
     common-phrases: [安装指南, OfficePro 2023, 数据分析, 移动办公, Python, Photoshop, windows 11, MySQL, 高可用, 机器学习, 证件照, AutoCAD 2023, 微信小程序, 项目管理, Premiere, 市场营销, 容器化, Docker, wsl安装]  # 常用短语列表
 
+# 线程池配置
+thread-pool:
+  # 通用异步任务线程池配置
+  async:
+    core-size: 5
+    max-size: 10
+    queue-capacity: 50
+    thread-name-prefix: async-secure-
+    keep-alive-seconds: 60
+  # MVC异步请求线程池配置
+  mvc:
+    core-size: 5
+    max-size: 10
+    queue-capacity: 50
+    thread-name-prefix: mvc-async-
+    keep-alive-seconds: 60
+    timeout-milliseconds: 30000
+
 # Milvus配置（自动配置：只需配置host和port即可）
 milvus:
   host: localhost
   port: 19530
+  # Milvus搜索参数配置
+  search:
+    # nprobe参数：控制搜索时检查的聚类数量，值越大搜索范围越广，匹配更精准，但查询速度会稍慢
+    # 建议值范围：16-128，默认值50
+    nprobe: 50
+    # 相似度阈值：控制返回结果的相似度阈值，范围0-1，值越大要求越严格
+    # 建议值范围：0.7-0.95，默认值0.9
+    score-threshold: 0.8
+  # HNSW索引参数配置
+  index:
+    # M参数：控制每个节点连接的邻居数，值越大索引质量越高，但构建更慢
+    # 建议值范围：4-64，默认值8
+    m: 8
+    # efConstruction参数：控制索引构建时的搜索范围，值越高，召回率越好，但构建更慢
+    # 建议值范围：32-256，默认值64
+    ef-construction: 64
 
 # 文本向量化服务地址
 embedding:
+  # 向量嵌入服务的URL
   url: http://localhost:8888/embed
+  # 向量维度，需要和嵌入模型生成的向量维度一致，否则 Milvus 无法正确存储和检索向量
+  # 默认值为384，如果使用不同的嵌入模型，请相应调整此值
+  vector-dim: 384

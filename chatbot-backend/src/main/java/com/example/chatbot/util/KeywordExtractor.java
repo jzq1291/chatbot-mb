@@ -1,6 +1,6 @@
 package com.example.chatbot.util;
 
-import com.example.chatbot.config.KeywordExtractorProperties;
+import com.example.chatbot.properties.KeywordExtractorProperties;
 import com.hankcs.hanlp.HanLP;
 import com.hankcs.hanlp.corpus.tag.Nature;
 import com.hankcs.hanlp.dictionary.CustomDictionary;

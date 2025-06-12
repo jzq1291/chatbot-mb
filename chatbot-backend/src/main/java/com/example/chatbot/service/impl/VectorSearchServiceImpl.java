@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -45,10 +46,19 @@ public class VectorSearchServiceImpl implements VectorSearchService {
     private static final String COLLECTION_NAME = "knowledge_base";
     private static final String VECTOR_FIELD = "vector";
     private static final String ID_FIELD = "id";
-    private static final int VECTOR_DIM = 384; // MiniLM-L6-v2 dimension
 
     @Value("${embedding.url}")
     private String embeddingUrl;
+    @Value("${embedding.vector-dim:384}")
+    private int vectorDim;
+    @Value("${milvus.search.nprobe:50}")
+    private int nprobe;
+    @Value("${milvus.search.score-threshold:0.9}")
+    private double scoreThreshold;
+    @Value("${milvus.index.m:8}")
+    private int hnswM;
+    @Value("${milvus.index.ef-construction:64}")
+    private int hnswEfConstruction;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -82,7 +92,7 @@ public class VectorSearchServiceImpl implements VectorSearchService {
                     FieldType.newBuilder()
                             .withName(VECTOR_FIELD)
                             .withDataType(io.milvus.grpc.DataType.FloatVector)
-                            .withDimension(VECTOR_DIM)
+                            .withDimension(vectorDim)
                             .build()
             );
             CreateCollectionParam createCollectionParam = CreateCollectionParam.newBuilder()
@@ -97,7 +107,7 @@ public class VectorSearchServiceImpl implements VectorSearchService {
                     .withFieldName(VECTOR_FIELD)
                     .withIndexType(IndexType.HNSW)
                     .withMetricType(MetricType.COSINE)
-                    .withExtraParam("{\"M\": 8, \"efConstruction\": 64}")
+                    .withExtraParam(String.format("{\"M\": %d, \"efConstruction\": %d}", hnswM, hnswEfConstruction))
                     .build();
 
             milvusClient.createIndex(createIndexParam);
@@ -131,6 +141,8 @@ public class VectorSearchServiceImpl implements VectorSearchService {
 
     /**
      * 检索相似文档
+     * nprobe越大搜索更广，匹配更精准，但查询速度会稍慢
+     * score(0-1):代表返回结果的相似度,
      */
     @Override
     public List<KnowledgeBase> searchSimilar(String query, int topK) {
@@ -144,6 +156,7 @@ public class VectorSearchServiceImpl implements VectorSearchService {
                     .withTopK(topK)
                     .withMetricType(MetricType.COSINE)
                     .withOutFields(List.of(ID_FIELD))
+                    .withParams(Map.of("nprobe", String.valueOf(nprobe)).toString())
                     .build();
 
             R<SearchResults> resp = milvusClient.search(searchParam);
@@ -151,11 +164,14 @@ public class VectorSearchServiceImpl implements VectorSearchService {
                 log.error("Milvus search failed: {}", resp.getMessage());
                 return new ArrayList<>();
             }
+
+            // 过滤相似度分数低于阈值的结果
             SearchResultsWrapper wrapper = new SearchResultsWrapper(resp.getData().getResults());
-            List<Long> ids = new ArrayList<>();
-            for (SearchResultsWrapper.IDScore idScore : wrapper.getIDScore(0)) {
-                ids.add(idScore.getLongID());
-            }
+            List<Long> ids = wrapper.getIDScore(0).stream()
+                    .filter(idScore -> idScore.getScore() > scoreThreshold)
+                    .map(SearchResultsWrapper.IDScore::getLongID)
+                    .collect(Collectors.toList());
+
             if (!ids.isEmpty()) {
                 // 先从Redis缓存中查找
                 List<KnowledgeBase> results = new ArrayList<>();

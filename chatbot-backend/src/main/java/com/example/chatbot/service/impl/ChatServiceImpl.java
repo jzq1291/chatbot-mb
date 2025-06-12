@@ -1,6 +1,6 @@
 package com.example.chatbot.service.impl;
 
-import com.example.chatbot.config.ModelProperties;
+import com.example.chatbot.properties.ModelProperties;
 import com.example.chatbot.dto.ChatRequest;
 import com.example.chatbot.dto.ChatResponse;
 import com.example.chatbot.entity.ChatMessage;

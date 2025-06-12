@@ -1,4 +1,4 @@
-package com.example.chatbot.config;
+package com.example.chatbot.properties;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -10,9 +10,9 @@ import java.util.List;
 @Component
 @ConfigurationProperties(prefix = "keyword.extractor")
 public class KeywordExtractorProperties {
-    private int minWordLength = 3;
-    private int minKeywordCount = 3;
-    private int defaultKeywordCount = 5;
+    private int minWordLength;
+    private int minKeywordCount;
+    private int defaultKeywordCount;
     private List<String> stopWords;
     private List<String> commonPhrases;
 } 
