@@ -1,58 +1,55 @@
 package com.example.chatbot.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
+import com.example.chatbot.dto.PageResponse;
+import com.example.chatbot.entity.KnowledgeBase;
+import com.example.chatbot.service.KnowledgeService;
+import com.example.chatbot.service.VectorSearchService;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
-import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-
+@SpringBootTest
+@ActiveProfiles("test")
 public class VectorSearchServiceImplTest {
 
-    @Mock
-    private RestTemplate restTemplate;
+    @Autowired
+    private KnowledgeService knowledgeService;
 
-    @Mock
-    private ObjectMapper objectMapper;
+    @Autowired
+    private VectorSearchService vectorSearchService;
 
-    @InjectMocks
-    private VectorSearchServiceImpl vectorSearchService;
-
-    @BeforeEach
-    public void setup() {
-        MockitoAnnotations.openMocks(this);
-    }
-
+    /**
+     * 测试将 PostgreSQL 中的所有知识库数据同步到 Milvus
+     * 注意：这是一个集成测试，需要实际的数据库连接
+     */
     @Test
-    public void testGenerateEmbedding() throws Exception {
-        // 模拟 HTTP 响应
-        String mockResponse = "{\"embedding\": [0.1, 0.2, 0.3]}";
-        ResponseEntity<String> responseEntity = ResponseEntity.ok(mockResponse);
-        when(restTemplate.postForEntity(eq("http://localhost:8888/embed"), any(HttpEntity.class), eq(String.class)))
-                .thenReturn(responseEntity);
+    public void testSyncAllKnowledgeToMilvus() {
+        // 2. 从 PostgreSQL 中获取所有知识库数据
+        // 这里使用分页查询，每次处理 50 条数据
+        int pageSize = 50;
+        int page = 1;
+        int totalProcessed = 0;
+        
+        while (true) {
+            PageResponse<KnowledgeBase> pageResponse = knowledgeService.findAll(page, pageSize);
+            List<KnowledgeBase> knowledgeList = pageResponse.getContent();
+            
+            if (knowledgeList.isEmpty()) {
+                break;
+            }
 
-        // 模拟 ObjectMapper 解析结果
-        Map<String, Object> mockResult = Map.of("embedding", List.of(0.1, 0.2, 0.3));
-        when(objectMapper.readValue(mockResponse, Map.class)).thenReturn(mockResult);
-
-        // 调用方法
-        List<Float> embedding = vectorSearchService.generateEmbedding("test text");
-
-        // 验证结果
-        assertEquals(3, embedding.size());
-        assertEquals(0.1f, embedding.get(0));
-        assertEquals(0.2f, embedding.get(1));
-        assertEquals(0.3f, embedding.get(2));
+            // 3. 将数据索引到 Milvus
+            vectorSearchService.indexDocuments(knowledgeList);
+            
+            totalProcessed += knowledgeList.size();
+            System.out.printf("Processed %d records, current page: %d%n", totalProcessed, page);
+            
+            page++;
+        }
+        
+        System.out.printf("Sync completed. Total records processed: %d%n", totalProcessed);
     }
 } 

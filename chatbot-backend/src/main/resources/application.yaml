@@ -9,7 +9,7 @@ spring:
   
   # 数据库配置
   datasource:
-    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb  # 数据库连接URL
+    url: jdbc:postgresql://localhost:5433/chatbotmb?currentSchema=chatbotmb  # 数据库连接URL
     username: postgres  # 数据库用户名
     password: 123456   # 数据库密码
     driver-class-name: org.postgresql.Driver  # 数据库驱动类
@@ -110,15 +110,24 @@ chatbot:
   model:
     options:
       qwen3:  # 通义千问模型配置
-        model: qwen3:4b
-        temperature: 0.7
-        top-p: 0.95
-        top-k: 5
+        model: qwen3:4b  # 模型名称和版本
+        temperature: 0.5  # 温度参数，控制输出的随机性。范围[0,1]，默认0.7。值越大，输出越随机；值越小，输出越确定
+        top-p: 0.9  # 核采样参数，控制输出词的概率分布。范围[0,1]，默认0.95。值越大，采样范围越大
+        top-k: 5  # 控制每次生成时考虑的最高概率词的数量。范围[1,∞)，默认5。值越大，采样范围越大
+        max_tokens: 2048  # 生成文本的最大长度。范围[1,∞)，默认2048
+        presence_penalty: 0.0  # 存在惩罚，控制模型避免重复内容的程度。范围[-2,2]，默认0.0。正值增加多样性，负值增加重复性
+        frequency_penalty: 0.0  # 频率惩罚，控制模型避免重复使用相同词的程度。范围[-2,2]，默认0.0。正值增加多样性，负值增加重复性
+        stop: []  # 停止序列，当生成文本包含这些序列时停止生成。默认为空列表
+
       deepseekR1:  # DeepSeek模型配置
-        model: deepseek-r1:14b
+        model: deepseek-r1:7b
         temperature: 0.7
         top-p: 0.95
         top-k: 50
+        max_tokens: 2048
+        presence_penalty: 0.0
+        frequency_penalty: 0.0
+        stop: []
 
 # 日志配置
 logging:
@@ -149,7 +158,7 @@ keyword:
     min-keyword-count: 3      # 最小关键词数量
     default-keyword-count: 5  # 默认关键词数量
     stop-words: [的, 了, 和, 是, 在, 我, 有, 这, 个, 们, 中, 为, 以, 及, 与, 或]  # 停用词列表
-    common-phrases: [安装指南, OfficePro 2023, 数据分析, 移动办公, Python, Photoshop, windows 11, MySQL, 高可用, 机器学习, 证件照, AutoCAD 2023, 微信小程序, 项目管理, Premiere, 市场营销, 容器化, Docker, wsl安装]  # 常用短语列表
+    common-phrases: [人工智能, 安装指南, OfficePro 2023, 数据分析, 移动办公, Python, Photoshop, windows 11, MySQL, 高可用, 机器学习, 证件照, AutoCAD 2023, 微信小程序, 项目管理, Premiere, 市场营销, 容器化, Docker, wsl安装]  # 常用短语列表
 
 # 线程池配置
 thread-pool:
@@ -180,7 +189,7 @@ milvus:
     nprobe: 50
     # 相似度阈值：控制返回结果的相似度阈值，范围0-1，值越大要求越严格
     # 建议值范围：0.7-0.95，默认值0.9
-    score-threshold: 0.8
+    score-threshold: 0.97
   # HNSW索引参数配置
   index:
     # M参数：控制每个节点连接的邻居数，值越大索引质量越高，但构建更慢
@@ -196,4 +205,4 @@ embedding:
   url: http://localhost:8888/embed
   # 向量维度，需要和嵌入模型生成的向量维度一致，否则 Milvus 无法正确存储和检索向量
   # 默认值为384，如果使用不同的嵌入模型，请相应调整此值
-  vector-dim: 384
+  vector-dim: 1024

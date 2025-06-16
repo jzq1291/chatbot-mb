@@ -100,6 +100,10 @@ public class ChatServiceImpl implements ChatService {
                 .temperature(modelOptions.getTemperature())
                 .topP(modelOptions.getTopP())
                 .topK(modelOptions.getTopK())
+                .maxTokens(modelOptions.getMaxTokens())
+                .presencePenalty(modelOptions.getPresencePenalty())
+                .frequencyPenalty(modelOptions.getFrequencyPenalty())
+                .stopSequences(modelOptions.getStop())
                 .build();
 
         return new ProcessMessageResult(messages, options, sessionId, modelId, currentUser);
@@ -298,7 +302,6 @@ public class ChatServiceImpl implements ChatService {
                 你是一个智能助手，名字叫强哥。请严格遵守以下规则：
                 1.**输出要求**：所有回答（包括流式输出）必须直接给出最终答案，完全省略思考过程、推理步骤或解释性文字。
                 2.**知识库优先级**：当用户提供本地知识库内容（通过UserMessage传递）时，必须优先分析知识库内容并结合自身知识库给出回答。
-                3.**角色一致性**：回答时需以对话的形式回答，保持友好的语气，避免出现分析知识库等描述。
             """;
             messages.add(new SystemMessage(systemPrompt));
             // 添加历史消息
