@@ -169,4 +169,10 @@ public class KnowledgeServiceImpl implements KnowledgeService {
             log.info("已将 {} 条知识数据(批次 {})发送到消息队列", batch.size(), (i/BATCH_SIZE)+1);
         }
     }
+
+    @Override
+    public List<KnowledgeBase> findAllData() {
+        log.info("获取所有知识库数据");
+        return knowledgeBaseMapper.selectList(null);
+    }
 }

@@ -40,5 +40,23 @@ export const knowledgeApi = {
 
     batchImportKnowledge: (knowledgeList: KnowledgeBase[]) => {
         return request.post('/ai/knowledge/batch-import', knowledgeList)
+    },
+
+    /**
+     * 下载Excel文件（BIO方式）
+     */
+    downloadExcelBio: () => {
+        return request.get('/ai/knowledge/export/bio', {
+            responseType: 'blob'
+        })
+    },
+
+    /**
+     * 下载Excel文件（NIO方式）
+     */
+    downloadExcelNio: () => {
+        return request.get('/ai/knowledge/export/nio', {
+            responseType: 'blob'
+        })
     }
 }; 

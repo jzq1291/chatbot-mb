@@ -12,6 +12,18 @@
         >
           <el-button type="primary">批量导入</el-button>
         </el-upload>
+        <el-dropdown @command="handleDownload" :loading="downloading">
+          <el-button type="success" :loading="downloading">
+            下载Excel
+            <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="bio">小于1000条</el-dropdown-item>
+              <el-dropdown-item command="nio">大于1000条</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
         <el-button type="primary" @click="showAddDialog">添加知识</el-button>
       </div>
     </div>
@@ -129,9 +141,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Search } from '@element-plus/icons-vue';
+import { Search, ArrowDown } from '@element-plus/icons-vue';
 import { useKnowledgeStore } from '@/store/knowledge';
-import type { KnowledgeBase } from '@/api/knowledge';
+import { knowledgeApi } from '@/api/knowledge';
+import type { KnowledgeBase } from '@/api/types';
 import { useAuthStore } from '@/store/auth'
 import * as XLSX from 'xlsx';
 
@@ -154,6 +167,7 @@ const contentPreviewVisible = ref(false);
 const previewData = ref<KnowledgeBase[]>([]);
 const currentPreviewContent = ref('');
 const importing = ref(false);
+const downloading = ref(false);
 
 // 更新分页信息
 const updatePagination = (response: any) => {
@@ -317,6 +331,53 @@ const handleBatchImport = async () => {
     console.error('Import error:', error);
   } finally {
     importing.value = false;
+  }
+};
+
+// 处理下载
+const handleDownload = async (command: string) => {
+  downloading.value = true;
+  try {
+    let response: any;
+    if (command === 'bio') {
+      response = await knowledgeApi.downloadExcelBio();
+    } else if (command === 'nio') {
+      response = await knowledgeApi.downloadExcelNio();
+    } else {
+      throw new Error('无效的下载方式');
+    }
+    
+    // 创建下载链接
+    const blob = new Blob([response.data], { 
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // 从响应头获取文件名
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = `知识库数据_${command.toUpperCase()}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
+    
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, '');
+      }
+    }
+    
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    ElMessage.success(`${command.toUpperCase()}方式下载成功`);
+  } catch (error) {
+    ElMessage.error('下载失败');
+    console.error('Download error:', error);
+  } finally {
+    downloading.value = false;
   }
 };
 

@@ -2,6 +2,7 @@ package com.example.chatbot.controller;
 
 import com.example.chatbot.dto.PageResponse;
 import com.example.chatbot.entity.KnowledgeBase;
+import com.example.chatbot.service.ExcelExportService;
 import com.example.chatbot.service.KnowledgeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class KnowledgeBaseController {
     private final KnowledgeService knowledgeService;
+    private final ExcelExportService excelExportService;
 
     @GetMapping
     public ResponseEntity<PageResponse<KnowledgeBase>> findAll(
@@ -87,5 +89,25 @@ public class KnowledgeBaseController {
             log.error("Error processing batch import request", e);
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    /**
+     * 使用BIO方式下载所有知识库数据为Excel文件
+     */
+    @GetMapping("/export/bio")
+    @PreAuthorize("hasAnyRole('ROLE_KNOWLEDGEMANAGER','ROLE_ADMIN')")
+    public ResponseEntity<byte[]> exportToExcelBio() {
+        List<KnowledgeBase> knowledgeList = knowledgeService.findAllData();
+        return excelExportService.downloadExcelBio(knowledgeList);
+    }
+
+    /**
+     * 使用NIO方式下载所有知识库数据为Excel文件
+     */
+    @GetMapping("/export/nio")
+    @PreAuthorize("hasAnyRole('ROLE_KNOWLEDGEMANAGER','ROLE_ADMIN')")
+    public ResponseEntity<byte[]> exportToExcelNio() {
+        List<KnowledgeBase> knowledgeList = knowledgeService.findAllData();
+        return excelExportService.downloadExcelNio(knowledgeList);
     }
 } 

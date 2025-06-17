@@ -9,7 +9,7 @@ spring:
   
   # 数据库配置
   datasource:
-    url: jdbc:postgresql://localhost:5433/chatbotmb?currentSchema=chatbotmb  # 数据库连接URL
+    url: jdbc:postgresql://localhost:5432/chatbotmb?currentSchema=chatbotmb  # 数据库连接URL
     username: postgres  # 数据库用户名
     password: 123456   # 数据库密码
     driver-class-name: org.postgresql.Driver  # 数据库驱动类

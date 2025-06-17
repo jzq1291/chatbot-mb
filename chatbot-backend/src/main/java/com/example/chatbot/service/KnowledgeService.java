@@ -15,4 +15,10 @@ public interface KnowledgeService {
     KnowledgeBase updateKnowledge(Long id, KnowledgeBase knowledge);
     void deleteKnowledge(Long id);
     void batchImport(List<KnowledgeBase> knowledgeList);
+    
+    /**
+     * 获取所有知识库数据（不分页）
+     * @return 所有知识库数据列表
+     */
+    List<KnowledgeBase> findAllData();
 } 
