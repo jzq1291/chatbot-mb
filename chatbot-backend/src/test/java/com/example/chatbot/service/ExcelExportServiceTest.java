@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -43,53 +45,69 @@ class ExcelExportServiceTest {
     }
 
     @Test
-    void testExportToExcelBio() {
+    void testDownloadExcelBio() {
         // 执行测试
-        byte[] result = excelExportService.exportToExcelBio(testData);
+        ResponseEntity<?> response = excelExportService.downloadExcel(testData, false);
 
         // 验证结果
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCodeValue());
+        assertTrue(response.getBody() instanceof byte[]);
+        
+        byte[] result = (byte[]) response.getBody();
         assertNotNull(result);
         assertTrue(result.length > 0);
         
         // 验证文件头（Excel文件的魔数）
         assertTrue(result[0] == 0x50); // P
         assertTrue(result[1] == 0x4B); // K
+        
+        // 验证响应头
+        assertNotNull(response.getHeaders().getContentDisposition());
+        assertTrue(response.getHeaders().getContentDisposition().getFilename().contains("BIO"));
     }
 
     @Test
-    void testExportToExcelNio() {
+    void testDownloadExcelNio() {
         // 执行测试
-        byte[] result = excelExportService.exportToExcelNio(testData);
+        ResponseEntity<?> response = excelExportService.downloadExcel(testData, true);
 
         // 验证结果
+        assertNotNull(response);
+        assertEquals(200, response.getStatusCodeValue());
+        assertTrue(response.getBody() instanceof byte[]);
+        
+        byte[] result = (byte[]) response.getBody();
         assertNotNull(result);
         assertTrue(result.length > 0);
         
         // 验证文件头（Excel文件的魔数）
         assertTrue(result[0] == 0x50); // P
         assertTrue(result[1] == 0x4B); // K
+        
+        // 验证响应头
+        assertNotNull(response.getHeaders().getContentDisposition());
+        assertTrue(response.getHeaders().getContentDisposition().getFilename().contains("NIO"));
     }
 
     @Test
-    void testExportEmptyList() {
+    void testDownloadExcelEmptyList() {
         List<KnowledgeBase> emptyList = new ArrayList<>();
         
         // 测试BIO方式
-        byte[] bioResult = excelExportService.exportToExcelBio(emptyList);
-        assertNotNull(bioResult);
-        assertTrue(bioResult.length > 0);
+        ResponseEntity<?> bioResponse = excelExportService.downloadExcel(emptyList, false);
+        assertEquals(204, bioResponse.getStatusCodeValue()); // No Content
         
         // 测试NIO方式
-        byte[] nioResult = excelExportService.exportToExcelNio(emptyList);
-        assertNotNull(nioResult);
-        assertTrue(nioResult.length > 0);
+        ResponseEntity<?> nioResponse = excelExportService.downloadExcel(emptyList, true);
+        assertEquals(204, nioResponse.getStatusCodeValue()); // No Content
     }
 
     @Test
-    void testExportLargeData() {
+    void testDownloadExcelLargeData() {
         // 创建大量测试数据
         List<KnowledgeBase> largeData = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 5000; i++) {
             largeData.add(createTestKnowledge(
                 (long) i,
                 "测试知识" + i,
@@ -100,21 +118,53 @@ class ExcelExportServiceTest {
         
         // 测试BIO方式
         long bioStartTime = System.currentTimeMillis();
-        byte[] bioResult = excelExportService.exportToExcelBio(largeData);
+        ResponseEntity<?> bioResponse = excelExportService.downloadExcel(largeData, false);
         long bioEndTime = System.currentTimeMillis();
         
         // 测试NIO方式
         long nioStartTime = System.currentTimeMillis();
-        byte[] nioResult = excelExportService.exportToExcelNio(largeData);
+        ResponseEntity<?> nioResponse = excelExportService.downloadExcel(largeData, true);
         long nioEndTime = System.currentTimeMillis();
         
         // 验证结果
-        assertNotNull(bioResult);
-        assertNotNull(nioResult);
+        assertNotNull(bioResponse);
+        assertNotNull(nioResponse);
+        assertEquals(200, bioResponse.getStatusCodeValue());
+        assertEquals(200, nioResponse.getStatusCodeValue());
+        
+        // BIO返回byte[]
+        assertTrue(bioResponse.getBody() instanceof byte[]);
+        byte[] bioResult = (byte[]) bioResponse.getBody();
         assertTrue(bioResult.length > 0);
+        
+        // NIO也返回byte[]
+        assertTrue(nioResponse.getBody() instanceof byte[]);
+        byte[] nioResult = (byte[]) nioResponse.getBody();
         assertTrue(nioResult.length > 0);
         
         System.out.println("BIO方式耗时: " + (bioEndTime - bioStartTime) + "ms");
         System.out.println("NIO方式耗时: " + (nioEndTime - nioStartTime) + "ms");
+        
+        // 验证性能差异（NIO应该更快）
+        long bioTime = bioEndTime - bioStartTime;
+        long nioTime = nioEndTime - nioStartTime;
+        System.out.println("性能提升: " + String.format("%.2f", (double) bioTime / nioTime) + "倍");
+    }
+
+    @Test
+    void testDownloadExcelResponseHeaders() {
+        ResponseEntity<?> response = excelExportService.downloadExcel(testData, false);
+        
+        // 验证响应头
+        assertNotNull(response.getHeaders().getContentType());
+        assertEquals("application/octet-stream", response.getHeaders().getContentType().toString());
+        
+        assertNotNull(response.getHeaders().getContentDisposition());
+        // 验证文件名包含attachment
+        String disposition = response.getHeaders().getContentDisposition().toString();
+        assertTrue(disposition.contains("attachment"));
+        
+        assertNotNull(response.getHeaders().getContentLength());
+        assertTrue(response.getHeaders().getContentLength() > 0);
     }
 } 

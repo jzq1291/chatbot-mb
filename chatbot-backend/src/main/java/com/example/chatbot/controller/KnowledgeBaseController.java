@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.util.List;
 
@@ -76,8 +77,8 @@ public class KnowledgeBaseController {
             return ResponseEntity.badRequest().build();
         }
         
-        if (knowledgeList.size() > 200) {
-            log.warn("Batch import request exceeded maximum limit of 200 items. Received: {}", knowledgeList.size());
+        if (knowledgeList.size() > 1000) {
+            log.warn("Batch import request exceeded maximum limit of 1000 items. Received: {}", knowledgeList.size());
             return ResponseEntity.badRequest().build();
         }
         
@@ -98,7 +99,7 @@ public class KnowledgeBaseController {
     @PreAuthorize("hasAnyRole('ROLE_KNOWLEDGEMANAGER','ROLE_ADMIN')")
     public ResponseEntity<byte[]> exportToExcelBio() {
         List<KnowledgeBase> knowledgeList = knowledgeService.findAllData();
-        return excelExportService.downloadExcelBio(knowledgeList);
+        return excelExportService.downloadExcel(knowledgeList, false);
     }
 
     /**
@@ -108,6 +109,16 @@ public class KnowledgeBaseController {
     @PreAuthorize("hasAnyRole('ROLE_KNOWLEDGEMANAGER','ROLE_ADMIN')")
     public ResponseEntity<byte[]> exportToExcelNio() {
         List<KnowledgeBase> knowledgeList = knowledgeService.findAllData();
-        return excelExportService.downloadExcelNio(knowledgeList);
+        return excelExportService.downloadExcel(knowledgeList, true);
+    }
+
+    /**
+     * 使用CSV流式方式下载所有知识库数据
+     */
+    @GetMapping("/export/csv")
+    @PreAuthorize("hasAnyRole('ROLE_KNOWLEDGEMANAGER','ROLE_ADMIN')")
+    public ResponseEntity<StreamingResponseBody> exportToCsv() {
+        List<KnowledgeBase> knowledgeList = knowledgeService.findAllData();
+        return excelExportService.downloadCsv(knowledgeList);
     }
 } 

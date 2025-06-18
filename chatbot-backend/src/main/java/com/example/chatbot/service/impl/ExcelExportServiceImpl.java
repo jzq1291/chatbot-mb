@@ -4,12 +4,14 @@ import com.example.chatbot.entity.KnowledgeBase;
 import com.example.chatbot.service.ExcelExportService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -23,7 +25,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.function.BiConsumer;
 
 @Slf4j
 @Service
@@ -31,32 +32,35 @@ public class ExcelExportServiceImpl implements ExcelExportService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String[] HEADERS = {"ID", "标题", "分类", "内容", "创建时间", "更新时间"};
+    private static final int DEFAULT_ROW_ACCESS_WINDOW_SIZE = 100; // SXSSF默认内存行数
 
     @Override
-    public byte[] exportToExcelBio(List<KnowledgeBase> knowledgeList) {
-        return exportToExcel(knowledgeList, "BIO", this::writeWithBio);
-    }
-
-    @Override
-    public byte[] exportToExcelNio(List<KnowledgeBase> knowledgeList) {
-        return exportToExcel(knowledgeList, "NIO", this::writeWithNio);
-    }
-
-    @Override
-    public ResponseEntity<byte[]> downloadExcelBio(List<KnowledgeBase> knowledgeList) {
-        return downloadExcel(knowledgeList, "BIO", this::exportToExcelBio);
-    }
-
-    @Override
-    public ResponseEntity<byte[]> downloadExcelNio(List<KnowledgeBase> knowledgeList) {
-        return downloadExcel(knowledgeList, "NIO", this::exportToExcelNio);
+    public ResponseEntity<byte[]> downloadExcel(List<KnowledgeBase> knowledgeList, boolean useNio) {
+        try {
+            String method = useNio ? "NIO" : "BIO";
+            log.info("开始{}方式下载Excel文件，数据量: {}", method, knowledgeList.size());
+            
+            if (knowledgeList.isEmpty()) {
+                log.warn("没有数据可导出");
+                return ResponseEntity.noContent().build();
+            }
+            
+            // 创建Excel内容
+            byte[] excelData = exportToExcel(knowledgeList, useNio);
+            return createDownloadResponse(excelData, method);
+            
+        } catch (Exception e) {
+            String method = useNio ? "NIO" : "BIO";
+            log.error("{}方式下载Excel文件失败", method, e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     /**
-     * 通用的Excel导出方法
+     * Excel导出（BIO或NIO方式）
      */
-    private byte[] exportToExcel(List<KnowledgeBase> knowledgeList, String method, 
-                                BiConsumer<Workbook, ByteArrayOutputStream> writeMethod) {
+    private byte[] exportToExcel(List<KnowledgeBase> knowledgeList, boolean useNio) {
+        String method = useNio ? "NIO" : "BIO";
         log.info("开始使用{}方式导出Excel，数据量: {}", method, knowledgeList.size());
         long startTime = System.currentTimeMillis();
         
@@ -66,8 +70,13 @@ public class ExcelExportServiceImpl implements ExcelExportService {
             // 创建Excel内容
             createExcelContent(workbook, knowledgeList);
             
-            // 使用指定的写入方式
-            writeMethod.accept(workbook, outputStream);
+            // 根据方式选择写入方法
+            if (useNio) {
+                writeWithNio(workbook, outputStream);
+            } else {
+                writeWithBio(workbook, outputStream);
+            }
+            
             byte[] result = outputStream.toByteArray();
             
             long endTime = System.currentTimeMillis();
@@ -83,24 +92,40 @@ public class ExcelExportServiceImpl implements ExcelExportService {
     }
 
     /**
-     * 通用的下载方法
+     * BIO方式写入
      */
-    private ResponseEntity<byte[]> downloadExcel(List<KnowledgeBase> knowledgeList, String method,
-                                                java.util.function.Function<List<KnowledgeBase>, byte[]> exportMethod) {
+    private void writeWithBio(Workbook workbook, ByteArrayOutputStream outputStream) {
         try {
-            log.info("开始{}方式下载Excel文件", method);
+            workbook.write(outputStream);
+        } catch (IOException e) {
+            throw new RuntimeException("BIO写入失败", e);
+        }
+    }
+
+    /**
+     * NIO方式写入
+     */
+    private void writeWithNio(Workbook workbook, ByteArrayOutputStream outputStream) {
+        try {
+            // 先将workbook写入临时ByteArrayOutputStream
+            ByteArrayOutputStream tempStream = new ByteArrayOutputStream();
+            workbook.write(tempStream);
+            tempStream.flush();
             
-            if (knowledgeList.isEmpty()) {
-                log.warn("没有数据可导出");
-                return ResponseEntity.noContent().build();
+            // 使用NIO Channel进行数据传输
+            try (ByteArrayInputStream inputStream = new ByteArrayInputStream(tempStream.toByteArray());
+                 ReadableByteChannel inputChannel = Channels.newChannel(inputStream);
+                 WritableByteChannel outputChannel = Channels.newChannel(outputStream)) {
+                
+                ByteBuffer buffer = ByteBuffer.allocate(8192); // 8KB缓冲区
+                while (inputChannel.read(buffer) != -1) {
+                    buffer.flip();
+                    outputChannel.write(buffer);
+                    buffer.clear();
+                }
             }
-            
-            byte[] excelData = exportMethod.apply(knowledgeList);
-            return createDownloadResponse(excelData, method);
-            
-        } catch (Exception e) {
-            log.error("{}方式下载Excel文件失败", method, e);
-            return ResponseEntity.internalServerError().build();
+        } catch (IOException e) {
+            throw new RuntimeException("NIO写入失败", e);
         }
     }
 
@@ -185,45 +210,6 @@ public class ExcelExportServiceImpl implements ExcelExportService {
     }
 
     /**
-     * BIO方式写入
-     */
-    private void writeWithBio(Workbook workbook, ByteArrayOutputStream outputStream) {
-        try {
-            workbook.write(outputStream);
-        } catch (IOException e) {
-            throw new RuntimeException("BIO写入失败", e);
-        }
-    }
-
-    /**
-     * NIO方式写入
-     */
-    private void writeWithNio(Workbook workbook, ByteArrayOutputStream outputStream) {
-        try {
-            // 先将workbook写入临时ByteArrayOutputStream
-            ByteArrayOutputStream tempStream = new ByteArrayOutputStream();
-            workbook.write(tempStream);
-            tempStream.flush();
-            
-            // 使用NIO Channel进行数据传输
-            try (ByteArrayInputStream inputStream = new ByteArrayInputStream(tempStream.toByteArray());
-                 ReadableByteChannel inputChannel = Channels.newChannel(inputStream);
-                 WritableByteChannel outputChannel = Channels.newChannel(outputStream)) {
-                
-                ByteBuffer buffer = ByteBuffer.allocate(8192); // 8KB缓冲区
-                
-                while (inputChannel.read(buffer) != -1) {
-                    buffer.flip();
-                    outputChannel.write(buffer);
-                    buffer.clear();
-                }
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("NIO写入失败", e);
-        }
-    }
-
-    /**
      * 创建下载响应
      */
     private ResponseEntity<byte[]> createDownloadResponse(byte[] excelData, String method) {
@@ -259,5 +245,53 @@ public class ExcelExportServiceImpl implements ExcelExportService {
         style.setBorderRight(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         return style;
+    }
+
+    @Override
+    public ResponseEntity<StreamingResponseBody> downloadCsv(List<KnowledgeBase> knowledgeList) {
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String filename = "知识库数据_CSV_" + timestamp + ".csv";
+        String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.TEXT_PLAIN);
+        headers.setContentDispositionFormData("attachment", encodedFilename);
+        StreamingResponseBody responseBody = outputStream -> {
+            try {
+                // 写入UTF-8 BOM，确保Excel正确识别编码
+                outputStream.write(new byte[] {(byte)0xEF, (byte)0xBB, (byte)0xBF});
+                // 写表头
+                String[] csvHeaders = HEADERS;
+                String headerLine = String.join(",", csvHeaders) + "\n";
+                outputStream.write(headerLine.getBytes(StandardCharsets.UTF_8));
+                // 写数据
+                for (KnowledgeBase kb : knowledgeList) {
+                    StringBuilder sb = new StringBuilder();
+                    sb.append(kb.getId() != null ? kb.getId() : "").append(",");
+                    sb.append(escapeCsv(kb.getTitle())).append(",");
+                    sb.append(escapeCsv(kb.getCategory())).append(",");
+                    sb.append(escapeCsv(kb.getContent())).append(",");
+                    sb.append(kb.getCreatedAt() != null ? kb.getCreatedAt().format(DATE_FORMATTER) : "").append(",");
+                    sb.append(kb.getUpdatedAt() != null ? kb.getUpdatedAt().format(DATE_FORMATTER) : "");
+                    sb.append("\n");
+                    outputStream.write(sb.toString().getBytes(StandardCharsets.UTF_8));
+                }
+                outputStream.flush();
+            } catch (Exception e) {
+                log.error("CSV流式导出失败", e);
+            }
+        };
+        return new ResponseEntity<>(responseBody, headers, HttpStatus.OK);
+    }
+
+    /**
+     * CSV字段转义
+     */
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        String v = value.replace("\"", "\"\"");
+        if (v.contains(",") || v.contains("\n") || v.contains("\r") || v.contains("\"")) {
+            return '"' + v + '"';
+        }
+        return v;
     }
 } 
