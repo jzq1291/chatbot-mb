@@ -12,18 +12,22 @@
         >
           <el-button type="primary">批量导入</el-button>
         </el-upload>
+        
+        <!-- 下载下拉菜单 -->
         <el-dropdown @command="handleDownload" :loading="downloading">
           <el-button type="success" :loading="downloading">
-            下载Excel
-            <el-icon class="el-icon--right"><arrow-down /></el-icon>
+            下载数据
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="bio">小于1000条</el-dropdown-item>
-              <el-dropdown-item command="nio">大于1000条</el-dropdown-item>
+              <el-dropdown-item command="bio">下载Excel (BIO)</el-dropdown-item>
+              <el-dropdown-item command="nio">下载Excel (NIO)</el-dropdown-item>
+              <el-dropdown-item command="csv">导出CSV</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        
         <el-button type="primary" @click="showAddDialog">添加知识</el-button>
       </div>
     </div>
@@ -339,25 +343,41 @@ const handleDownload = async (command: string) => {
   downloading.value = true;
   try {
     let response: any;
-    if (command === 'bio') {
-      response = await knowledgeApi.downloadExcelBio();
-    } else if (command === 'nio') {
-      response = await knowledgeApi.downloadExcelNio();
-    } else {
-      throw new Error('无效的下载方式');
+    
+    switch (command) {
+      case 'bio':
+        response = await knowledgeApi.downloadExcelBio();
+        break;
+      case 'nio':
+        response = await knowledgeApi.downloadExcelNio();
+        break;
+      case 'csv':
+        response = await knowledgeApi.downloadCsv();
+        break;
+      default:
+        throw new Error('无效的下载方式');
+    }
+    
+    // 根据下载类型设置不同的MIME类型
+    let mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    let fileExtension = 'xlsx';
+    let successMessage = `${command.toUpperCase()}方式下载成功`;
+    
+    if (command === 'csv') {
+      mimeType = 'text/csv;charset=utf-8;';
+      fileExtension = 'csv';
+      successMessage = 'CSV流式导出成功';
     }
     
     // 创建下载链接
-    const blob = new Blob([response.data], { 
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-    });
+    const blob = new Blob([response.data], { type: mimeType });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     
     // 从响应头获取文件名
     const contentDisposition = response.headers['content-disposition'];
-    let filename = `知识库数据_${command.toUpperCase()}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
+    let filename = `知识库数据_${command.toUpperCase()}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.${fileExtension}`;
     
     if (contentDisposition) {
       const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
@@ -372,7 +392,7 @@ const handleDownload = async (command: string) => {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
     
-    ElMessage.success(`${command.toUpperCase()}方式下载成功`);
+    ElMessage.success(successMessage);
   } catch (error) {
     ElMessage.error('下载失败');
     console.error('Download error:', error);
@@ -411,6 +431,7 @@ onMounted(async () => {
 .header-buttons {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
 .search-bar {

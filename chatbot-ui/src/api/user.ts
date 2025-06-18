@@ -1,5 +1,5 @@
 import request from '@/utils/request'
-import type { PageResponse } from './knowledge'
+import type { PageResponse } from './types'
 
 export interface User {
   id?: number

@@ -2,12 +2,6 @@ import request from '@/utils/request'
 import type { KnowledgeBase, PageResponse } from './types'
 
 export const knowledgeApi = {
-    // getAll: (page: number, size: number) => {
-    //     return request.get<PageResponse<KnowledgeBase>>('/ai/knowledge/search', {
-    //         params: { page, size }
-    //     })
-    // },
-
     getKnowledgeList: (page: number, size: number) => {
         return request.get<PageResponse<KnowledgeBase>>('/ai/knowledge', {
             params: { page, size }
@@ -56,6 +50,15 @@ export const knowledgeApi = {
      */
     downloadExcelNio: () => {
         return request.get('/ai/knowledge/export/nio', {
+            responseType: 'blob'
+        })
+    },
+
+    /**
+     * 下载CSV文件（流式导出）
+     */
+    downloadCsv: () => {
+        return request.get('/ai/knowledge/export/csv', {
             responseType: 'blob'
         })
     }
