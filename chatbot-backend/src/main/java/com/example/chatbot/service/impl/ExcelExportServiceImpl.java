@@ -4,7 +4,6 @@ import com.example.chatbot.entity.KnowledgeBase;
 import com.example.chatbot.service.ExcelExportService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -32,7 +31,7 @@ public class ExcelExportServiceImpl implements ExcelExportService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final String[] HEADERS = {"ID", "标题", "分类", "内容", "创建时间", "更新时间"};
-    private static final int DEFAULT_ROW_ACCESS_WINDOW_SIZE = 100; // SXSSF默认内存行数
+    // SXSSF默认内存行数
 
     @Override
     public ResponseEntity<byte[]> downloadExcel(List<KnowledgeBase> knowledgeList, boolean useNio) {
@@ -260,8 +259,7 @@ public class ExcelExportServiceImpl implements ExcelExportService {
                 // 写入UTF-8 BOM，确保Excel正确识别编码
                 outputStream.write(new byte[] {(byte)0xEF, (byte)0xBB, (byte)0xBF});
                 // 写表头
-                String[] csvHeaders = HEADERS;
-                String headerLine = String.join(",", csvHeaders) + "\n";
+                String headerLine = String.join(",", HEADERS) + "\n";
                 outputStream.write(headerLine.getBytes(StandardCharsets.UTF_8));
                 // 写数据
                 for (KnowledgeBase kb : knowledgeList) {
