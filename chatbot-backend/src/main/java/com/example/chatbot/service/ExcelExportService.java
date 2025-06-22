@@ -20,4 +20,11 @@ public interface ExcelExportService {
      * 下载CSV文件（流式输出）
      */
     ResponseEntity<StreamingResponseBody> downloadCsv(List<KnowledgeBase> knowledgeList);
+
+    /**
+     * 流式NIO下载Excel文件
+     * @param knowledgeList 知识库数据列表
+     * @return ResponseEntity<StreamingResponseBody> 流式响应
+     */
+    ResponseEntity<StreamingResponseBody> downloadExcelStreamingNio(List<KnowledgeBase> knowledgeList);
 } 

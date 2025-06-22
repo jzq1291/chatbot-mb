@@ -55,6 +55,15 @@ export const knowledgeApi = {
     },
 
     /**
+     * 下载Excel文件（流式NIO方式）
+     */
+    downloadExcelStreamingNio: () => {
+        return request.get('/ai/knowledge/export/streaming-nio', {
+            responseType: 'blob'
+        })
+    },
+
+    /**
      * 下载CSV文件（流式导出）
      */
     downloadCsv: () => {

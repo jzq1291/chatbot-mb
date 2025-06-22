@@ -113,6 +113,16 @@ public class KnowledgeBaseController {
     }
 
     /**
+     * 使用流式NIO方式下载所有知识库数据为Excel文件
+     */
+    @GetMapping("/export/streaming-nio")
+    @PreAuthorize("hasAnyRole('ROLE_KNOWLEDGEMANAGER','ROLE_ADMIN')")
+    public ResponseEntity<StreamingResponseBody> exportToExcelStreamingNio() {
+        List<KnowledgeBase> knowledgeList = knowledgeService.findAllData();
+        return excelExportService.downloadExcelStreamingNio(knowledgeList);
+    }
+
+    /**
      * 使用CSV流式方式下载所有知识库数据
      */
     @GetMapping("/export/csv")

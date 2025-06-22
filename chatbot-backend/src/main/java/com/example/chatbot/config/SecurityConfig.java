@@ -3,6 +3,7 @@ package com.example.chatbot.config;
 import com.example.chatbot.security.JwtAuthenticationFilter;
 import com.example.chatbot.security.JwtTokenProvider;
 import com.example.chatbot.service.TokenBlacklistService;
+import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -54,8 +55,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/ai/auth/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
-                .requestMatchers("/ai/chat/send/reactive").permitAll()
-                .requestMatchers("/ai/knowledge/export/csv").permitAll()
+                .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                 .requestMatchers("/ai/chat/**").hasAnyRole("ADMIN", "USER", "KNOWLEDGEMANAGER")
                 .requestMatchers("/ai/knowledge/**").hasAnyRole("ADMIN", "KNOWLEDGEMANAGER")
                 .requestMatchers("/ai/users/**").hasRole("ADMIN")

@@ -23,6 +23,7 @@
             <el-dropdown-menu>
               <el-dropdown-item command="bio">下载Excel (BIO)</el-dropdown-item>
               <el-dropdown-item command="nio">下载Excel (NIO)</el-dropdown-item>
+              <el-dropdown-item command="streaming-nio">下载Excel (流式NIO)</el-dropdown-item>
               <el-dropdown-item command="csv">导出CSV</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -350,6 +351,9 @@ const handleDownload = async (command: string) => {
         break;
       case 'nio':
         response = await knowledgeApi.downloadExcelNio();
+        break;
+      case 'streaming-nio':
+        response = await knowledgeApi.downloadExcelStreamingNio();
         break;
       case 'csv':
         response = await knowledgeApi.downloadCsv();

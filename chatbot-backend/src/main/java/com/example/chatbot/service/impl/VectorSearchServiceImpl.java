@@ -1,9 +1,13 @@
 package com.example.chatbot.service.impl;
 
 import com.example.chatbot.entity.KnowledgeBase;
+import com.example.chatbot.exception.BusinessException;
+import com.example.chatbot.exception.ErrorCode;
 import com.example.chatbot.mapper.KnowledgeBaseMapper;
+import com.example.chatbot.service.RedisDistributedLock;
 import com.example.chatbot.service.RedisService;
 import com.example.chatbot.service.VectorSearchService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.SearchResults;
 import io.milvus.param.IndexType;
@@ -19,19 +23,17 @@ import io.milvus.response.SearchResultsWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.http.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.example.chatbot.service.RedisDistributedLock;
-import com.example.chatbot.exception.BusinessException;
-import com.example.chatbot.exception.ErrorCode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -170,7 +172,7 @@ public class VectorSearchServiceImpl implements VectorSearchService {
             List<Long> ids = wrapper.getIDScore(0).stream()
                     .filter(idScore -> idScore.getScore() > scoreThreshold)
                     .map(SearchResultsWrapper.IDScore::getLongID)
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (!ids.isEmpty()) {
                 // 先从Redis缓存中查找
